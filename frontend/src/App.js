@@ -10,23 +10,23 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>RAG-Enhanced Chatbot</h1>
-        <div className="controls">
-          <label>
-            <input
-              type="checkbox"
-              checked={useRAG}
-              onChange={(e) => setUseRAG(e.target.checked)}
-            />
-            Use RAG (Document Context)
-          </label>
-        </div>
       </header>
       <main className="App-main">
-        <div className="app-container">
-          <div className="document-section">
+        <div className="container">
+          <div className="sidebar">
             <DocumentManager />
+            <div className="rag-toggle">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={useRAG}
+                  onChange={(e) => setUseRAG(e.target.checked)}
+                />
+                Use RAG (Document Context)
+              </label>
+            </div>
           </div>
-          <div className="chat-section">
+          <div className="chat-container">
             <ChatBox useRAG={useRAG} />
           </div>
         </div>

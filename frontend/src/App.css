@@ -12,55 +12,64 @@
 }
 
 .App-header h1 {
-  margin: 0 0 20px 0;
+  margin: 0;
   font-size: 2rem;
-}
-
-.controls {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-}
-
-.controls label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 1rem;
 }
 
 .App-main {
   flex: 1;
+  display: flex;
+  justify-content: center;
   padding: 20px;
-  background-color: #f5f5f5;
 }
 
-.app-container {
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 20px;
+.container {
+  display: flex;
   max-width: 1200px;
-  margin: 0 auto;
-  height: calc(100vh - 140px);
+  width: 100%;
+  gap: 20px;
 }
 
-.document-section {
-  background: white;
-  border-radius: 8px;
+.sidebar {
+  width: 300px;
+  background-color: #f5f5f5;
   padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  height: fit-content;
 }
 
-.chat-section {
-  background: white;
+.chat-container {
+  flex: 1;
+  background-color: white;
   border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.rag-toggle {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+}
+
+.rag-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.rag-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
 }
 
 @media (max-width: 768px) {
-  .app-container {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+  .container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
   }
 }

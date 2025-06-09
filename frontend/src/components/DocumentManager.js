@@ -97,15 +97,14 @@ const DocumentManager = () => {
 
   return (
     <div className="document-manager">
-      <h2>Document Manager</h2>
+      <h3>Document Manager</h3>
       
       <div className="add-document">
-        <h3>Add Google Doc</h3>
         <input
           type="text"
           value={documentId}
           onChange={(e) => setDocumentId(e.target.value)}
-          placeholder="Enter Google Doc ID"
+          placeholder="Google Doc ID"
           disabled={isLoading}
         />
         <button onClick={addDocument} disabled={isLoading || !documentId.trim()}>
@@ -115,14 +114,14 @@ const DocumentManager = () => {
 
       {stats && (
         <div className="stats">
-          <h3>Statistics</h3>
-          <p>Total Documents: {stats.total_documents}</p>
-          <p>Total Chunks: {stats.total_chunks}</p>
+          <h4>Knowledge Base Stats</h4>
+          <p>Documents: {stats.total_documents}</p>
+          <p>Chunks: {stats.total_chunks}</p>
         </div>
       )}
 
       <div className="document-list">
-        <h3>Added Documents</h3>
+        <h4>Added Documents</h4>
         {documents.length === 0 ? (
           <p>No documents added yet.</p>
         ) : (
@@ -138,47 +137,39 @@ const DocumentManager = () => {
       </div>
 
       {documents.length > 0 && (
-        <div className="clear-all">
-          <button onClick={clearAllDocuments} className="danger">
-            Clear All Documents
-          </button>
-        </div>
+        <button className="clear-all" onClick={clearAllDocuments}>
+          Clear All Documents
+        </button>
       )}
 
       <style jsx>{`
         .document-manager {
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .document-manager h2 {
-          margin-top: 0;
-          color: #333;
-          border-bottom: 2px solid #007bff;
-          padding-bottom: 10px;
-        }
-
-        .add-document {
+          background-color: white;
+          padding: 15px;
+          border-radius: 8px;
           margin-bottom: 20px;
         }
 
-        .add-document h3 {
-          margin-bottom: 10px;
-          color: #555;
+        .document-manager h3 {
+          margin-top: 0;
+          color: #333;
+        }
+
+        .add-document {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-bottom: 20px;
         }
 
         .add-document input {
-          width: 100%;
           padding: 8px;
-          margin-bottom: 10px;
           border: 1px solid #ddd;
           border-radius: 4px;
         }
 
         .add-document button {
-          width: 100%;
-          padding: 10px;
+          padding: 8px 16px;
           background-color: #28a745;
           color: white;
           border: none;
@@ -186,39 +177,33 @@ const DocumentManager = () => {
           cursor: pointer;
         }
 
-        .add-document button:disabled {
-          background-color: #6c757d;
-          cursor: not-allowed;
-        }
-
         .add-document button:hover:not(:disabled) {
           background-color: #218838;
         }
 
+        .add-document button:disabled {
+          background-color: #ccc;
+          cursor: not-allowed;
+        }
+
         .stats {
           background-color: #f8f9fa;
-          padding: 15px;
+          padding: 10px;
           border-radius: 4px;
           margin-bottom: 20px;
         }
 
-        .stats h3 {
+        .stats h4 {
           margin-top: 0;
-          color: #555;
+          margin-bottom: 10px;
         }
 
         .stats p {
           margin: 5px 0;
-          color: #666;
+          font-size: 0.9em;
         }
 
-        .document-list {
-          flex: 1;
-          overflow-y: auto;
-        }
-
-        .document-list h3 {
-          color: #555;
+        .document-list h4 {
           margin-bottom: 10px;
         }
 
@@ -231,21 +216,20 @@ const DocumentManager = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 10px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          margin-bottom: 5px;
+          padding: 8px;
           background-color: #f8f9fa;
+          margin-bottom: 5px;
+          border-radius: 4px;
         }
 
         .document-list button {
+          padding: 4px 8px;
           background-color: #dc3545;
           color: white;
           border: none;
-          padding: 5px 10px;
           border-radius: 4px;
           cursor: pointer;
-          font-size: 0.9em;
+          font-size: 0.8em;
         }
 
         .document-list button:hover {
@@ -253,12 +237,6 @@ const DocumentManager = () => {
         }
 
         .clear-all {
-          margin-top: 20px;
-          padding-top: 20px;
-          border-top: 1px solid #ddd;
-        }
-
-        .clear-all button.danger {
           width: 100%;
           padding: 10px;
           background-color: #dc3545;
@@ -266,9 +244,10 @@ const DocumentManager = () => {
           border: none;
           border-radius: 4px;
           cursor: pointer;
+          margin-top: 15px;
         }
 
-        .clear-all button.danger:hover {
+        .clear-all:hover {
           background-color: #c82333;
         }
       `}</style>

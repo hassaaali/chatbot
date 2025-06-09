@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "RAG Chatbot",
+  "name": "RAG-Enhanced Chatbot",
   "icons": [
     {
       "src": "favicon.ico",

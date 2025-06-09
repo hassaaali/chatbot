@@ -35,7 +35,7 @@ const ChatBox = ({ useRAG }) => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        throw new Error('Failed to get response');
       }
 
       const data = await response.json();
@@ -67,8 +67,8 @@ const ChatBox = ({ useRAG }) => {
   };
 
   return (
-    <div className="chat-container">
-      <div className="messages-container">
+    <div className="chatbox">
+      <div className="messages">
         {messages.map((message, index) => (
           <div key={index} className={`message ${message.role}`}>
             <div className="message-content">
@@ -93,7 +93,7 @@ const ChatBox = ({ useRAG }) => {
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="input-container">
+      <div className="input-area">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -107,25 +107,23 @@ const ChatBox = ({ useRAG }) => {
         </button>
       </div>
       <style jsx>{`
-        .chat-container {
+        .chatbox {
           display: flex;
           flex-direction: column;
-          height: 100%;
+          height: 600px;
+          padding: 20px;
         }
 
-        .messages-container {
+        .messages {
           flex: 1;
           overflow-y: auto;
-          padding: 10px;
-          border: 1px solid #ddd;
-          border-radius: 8px;
-          margin-bottom: 10px;
-          background-color: #fafafa;
+          margin-bottom: 20px;
+          padding-right: 10px;
         }
 
         .message {
           margin-bottom: 15px;
-          padding: 10px;
+          padding: 12px;
           border-radius: 8px;
           max-width: 80%;
         }
@@ -138,20 +136,25 @@ const ChatBox = ({ useRAG }) => {
         }
 
         .message.assistant {
-          background-color: #e9ecef;
+          background-color: #f1f1f1;
           color: #333;
           margin-right: auto;
         }
 
-        .message.loading {
+        .message.assistant.loading {
           opacity: 0.7;
           font-style: italic;
+        }
+
+        .message.assistant.error {
+          background-color: #ffebee;
+          color: #c62828;
         }
 
         .sources {
           margin-top: 10px;
           padding-top: 10px;
-          border-top: 1px solid #ccc;
+          border-top: 1px solid #ddd;
           font-size: 0.9em;
         }
 
@@ -160,38 +163,38 @@ const ChatBox = ({ useRAG }) => {
           padding-left: 20px;
         }
 
-        .input-container {
+        .input-area {
           display: flex;
           gap: 10px;
           align-items: flex-end;
         }
 
-        .input-container textarea {
+        .input-area textarea {
           flex: 1;
-          padding: 10px;
+          padding: 12px;
           border: 1px solid #ddd;
           border-radius: 4px;
           resize: vertical;
-          min-height: 60px;
+          font-family: inherit;
         }
 
-        .input-container button {
-          padding: 10px 20px;
+        .input-area button {
+          padding: 12px 24px;
           background-color: #007bff;
           color: white;
           border: none;
           border-radius: 4px;
           cursor: pointer;
-          height: fit-content;
+          font-weight: 500;
         }
 
-        .input-container button:disabled {
-          background-color: #6c757d;
-          cursor: not-allowed;
-        }
-
-        .input-container button:hover:not(:disabled) {
+        .input-area button:hover:not(:disabled) {
           background-color: #0056b3;
+        }
+
+        .input-area button:disabled {
+          background-color: #ccc;
+          cursor: not-allowed;
         }
       `}</style>
     </div>
