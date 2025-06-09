@@ -1,15 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
+import './App.css';
 import ChatBox from './ChatBox';
 import DocumentManager from './components/DocumentManager';
 
 function App() {
+  const [useRAG, setUseRAG] = useState(false);
+
   return (
-    <div className="App" style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
-      <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '30px' }}>
-        🤖 RAG-Enhanced AI Chatbot
-      </h1>
-      <DocumentManager />
-      <ChatBox />
+    <div className="App">
+      <header className="App-header">
+        <h1>RAG-Enhanced Chatbot</h1>
+        <div className="controls">
+          <label>
+            <input
+              type="checkbox"
+              checked={useRAG}
+              onChange={(e) => setUseRAG(e.target.checked)}
+            />
+            Use RAG (Document Context)
+          </label>
+        </div>
+      </header>
+      <main className="App-main">
+        <div className="app-container">
+          <div className="document-section">
+            <DocumentManager />
+          </div>
+          <div className="chat-section">
+            <ChatBox useRAG={useRAG} />
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

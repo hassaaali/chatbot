@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 
 const DocumentManager = () => {
   const [documentId, setDocumentId] = useState('');
-  const [title, setTitle] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [documents, setDocuments] = useState([]);
   const [stats, setStats] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -24,38 +23,52 @@ const DocumentManager = () => {
   };
 
   const addDocument = async () => {
-    if (!documentId.trim()) {
-      setMessage('Please enter a document ID');
-      return;
-    }
+    if (!documentId.trim()) return;
 
     setIsLoading(true);
-    setMessage('');
-
     try {
       const response = await fetch('http://localhost:8000/documents/add', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          document_id: documentId,
-          title: title || undefined
-        })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ document_id: documentId }),
       });
 
-      const data = await response.json();
-      
       if (response.ok) {
-        setMessage(`✅ ${data.message}`);
+        const data = await response.json();
+        setDocuments(prev => [...prev, data]);
         setDocumentId('');
-        setTitle('');
-        fetchStats(); // Refresh stats
+        fetchStats();
+        alert('Document added successfully!');
       } else {
-        setMessage(`❌ Error: ${data.detail}`);
+        const error = await response.json();
+        alert(`Error: ${error.detail || 'Failed to add document'}`);
       }
     } catch (error) {
-      setMessage(`❌ Network error: ${error.message}`);
+      console.error('Error adding document:', error);
+      alert('Error adding document. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const removeDocument = async (docId) => {
+    try {
+      const response = await fetch(`http://localhost:8000/documents/${docId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setDocuments(prev => prev.filter(doc => doc.id !== docId));
+        fetchStats();
+        alert('Document removed successfully!');
+      } else {
+        alert('Error removing document');
+      }
+    } catch (error) {
+      console.error('Error removing document:', error);
+      alert('Error removing document. Please try again.');
     }
   };
 
@@ -64,155 +77,201 @@ const DocumentManager = () => {
       return;
     }
 
-    setIsLoading(true);
     try {
       const response = await fetch('http://localhost:8000/documents/clear', {
-        method: 'DELETE'
+        method: 'DELETE',
       });
 
-      const data = await response.json();
-      
       if (response.ok) {
-        setMessage(`✅ ${data.message}`);
-        fetchStats(); // Refresh stats
+        setDocuments([]);
+        fetchStats();
+        alert('All documents cleared successfully!');
       } else {
-        setMessage(`❌ Error: ${data.detail}`);
+        alert('Error clearing documents');
       }
     } catch (error) {
-      setMessage(`❌ Network error: ${error.message}`);
-    } finally {
-      setIsLoading(false);
+      console.error('Error clearing documents:', error);
+      alert('Error clearing documents. Please try again.');
     }
   };
 
   return (
-    <div style={{ 
-      padding: '20px', 
-      border: '1px solid #ddd', 
-      borderRadius: '8px', 
-      marginBottom: '20px',
-      backgroundColor: '#f9f9f9'
-    }}>
-      <h3>📚 Document Management</h3>
+    <div className="document-manager">
+      <h2>Document Manager</h2>
       
-      <div style={{ marginBottom: '15px' }}>
+      <div className="add-document">
+        <h3>Add Google Doc</h3>
         <input
           type="text"
-          placeholder="Google Doc ID (from URL)"
           value={documentId}
           onChange={(e) => setDocumentId(e.target.value)}
-          style={{ 
-            width: '300px', 
-            padding: '8px', 
-            marginRight: '10px',
-            border: '1px solid #ccc',
-            borderRadius: '4px'
-          }}
+          placeholder="Enter Google Doc ID"
           disabled={isLoading}
         />
-        <input
-          type="text"
-          placeholder="Custom title (optional)"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{ 
-            width: '200px', 
-            padding: '8px', 
-            marginRight: '10px',
-            border: '1px solid #ccc',
-            borderRadius: '4px'
-          }}
-          disabled={isLoading}
-        />
-        <button 
-          onClick={addDocument} 
-          disabled={isLoading || !documentId.trim()}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isLoading ? 'not-allowed' : 'pointer'
-          }}
-        >
+        <button onClick={addDocument} disabled={isLoading || !documentId.trim()}>
           {isLoading ? 'Adding...' : 'Add Document'}
         </button>
       </div>
 
-      <div style={{ marginBottom: '15px' }}>
-        <button 
-          onClick={clearAllDocuments} 
-          disabled={isLoading}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#dc3545',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            marginRight: '10px'
-          }}
-        >
-          Clear All Documents
-        </button>
-        <button 
-          onClick={fetchStats} 
-          disabled={isLoading}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isLoading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          Refresh Stats
-        </button>
-      </div>
-
-      {message && (
-        <div style={{ 
-          padding: '10px', 
-          marginBottom: '15px',
-          backgroundColor: message.includes('✅') ? '#d4edda' : '#f8d7da',
-          border: `1px solid ${message.includes('✅') ? '#c3e6cb' : '#f5c6cb'}`,
-          borderRadius: '4px',
-          color: message.includes('✅') ? '#155724' : '#721c24'
-        }}>
-          {message}
-        </div>
-      )}
-
       {stats && (
-        <div style={{ 
-          padding: '10px', 
-          backgroundColor: '#e9ecef',
-          border: '1px solid #ced4da',
-          borderRadius: '4px'
-        }}>
-          <h4>📊 System Stats</h4>
-          <p><strong>Total Documents:</strong> {stats.vector_store_stats.total_documents}</p>
-          <p><strong>Embedding Model:</strong> {stats.vector_store_stats.embedding_model}</p>
-          <p><strong>Chunk Size:</strong> {stats.processor_config.chunk_size} tokens</p>
-          <p><strong>Chunk Overlap:</strong> {stats.processor_config.chunk_overlap} tokens</p>
+        <div className="stats">
+          <h3>Statistics</h3>
+          <p>Total Documents: {stats.total_documents}</p>
+          <p>Total Chunks: {stats.total_chunks}</p>
         </div>
       )}
 
-      <div style={{ 
-        marginTop: '15px', 
-        padding: '10px', 
-        backgroundColor: '#fff3cd',
-        border: '1px solid #ffeaa7',
-        borderRadius: '4px',
-        fontSize: '14px'
-      }}>
-        <strong>💡 How to get Google Doc ID:</strong><br/>
-        1. Open your Google Doc<br/>
-        2. Copy the ID from the URL: docs.google.com/document/d/<strong>[DOCUMENT_ID]</strong>/edit<br/>
-        3. Make sure the document is shared publicly or with your Google account
+      <div className="document-list">
+        <h3>Added Documents</h3>
+        {documents.length === 0 ? (
+          <p>No documents added yet.</p>
+        ) : (
+          <ul>
+            {documents.map((doc) => (
+              <li key={doc.id}>
+                <span>{doc.title || doc.id}</span>
+                <button onClick={() => removeDocument(doc.id)}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
+
+      {documents.length > 0 && (
+        <div className="clear-all">
+          <button onClick={clearAllDocuments} className="danger">
+            Clear All Documents
+          </button>
+        </div>
+      )}
+
+      <style jsx>{`
+        .document-manager {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .document-manager h2 {
+          margin-top: 0;
+          color: #333;
+          border-bottom: 2px solid #007bff;
+          padding-bottom: 10px;
+        }
+
+        .add-document {
+          margin-bottom: 20px;
+        }
+
+        .add-document h3 {
+          margin-bottom: 10px;
+          color: #555;
+        }
+
+        .add-document input {
+          width: 100%;
+          padding: 8px;
+          margin-bottom: 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+        }
+
+        .add-document button {
+          width: 100%;
+          padding: 10px;
+          background-color: #28a745;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+
+        .add-document button:disabled {
+          background-color: #6c757d;
+          cursor: not-allowed;
+        }
+
+        .add-document button:hover:not(:disabled) {
+          background-color: #218838;
+        }
+
+        .stats {
+          background-color: #f8f9fa;
+          padding: 15px;
+          border-radius: 4px;
+          margin-bottom: 20px;
+        }
+
+        .stats h3 {
+          margin-top: 0;
+          color: #555;
+        }
+
+        .stats p {
+          margin: 5px 0;
+          color: #666;
+        }
+
+        .document-list {
+          flex: 1;
+          overflow-y: auto;
+        }
+
+        .document-list h3 {
+          color: #555;
+          margin-bottom: 10px;
+        }
+
+        .document-list ul {
+          list-style: none;
+          padding: 0;
+        }
+
+        .document-list li {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          margin-bottom: 5px;
+          background-color: #f8f9fa;
+        }
+
+        .document-list button {
+          background-color: #dc3545;
+          color: white;
+          border: none;
+          padding: 5px 10px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 0.9em;
+        }
+
+        .document-list button:hover {
+          background-color: #c82333;
+        }
+
+        .clear-all {
+          margin-top: 20px;
+          padding-top: 20px;
+          border-top: 1px solid #ddd;
+        }
+
+        .clear-all button.danger {
+          width: 100%;
+          padding: 10px;
+          background-color: #dc3545;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+
+        .clear-all button.danger:hover {
+          background-color: #c82333;
+        }
+      `}</style>
     </div>
   );
 };

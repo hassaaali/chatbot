@@ -1,249 +1,199 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const ChatBox = () => {
-  const [prompt, setPrompt] = useState('');
-  const [response, setResponse] = useState([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState('');
-  const [useRag, setUseRag] = useState(true);
-  const [contextInfo, setContextInfo] = useState(null);
-  const controllerRef = useRef(null);
+const ChatBox = ({ useRAG }) => {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
 
-  const handleSubmit = async () => {
-    if (!prompt.trim()) {
-      setError('Please enter a prompt.');
-      return;
-    }
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-    setResponse([]);
-    setError('');
-    setContextInfo(null);
-    setIsStreaming(true);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const userMessage = { role: 'user', content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
 
     try {
-      controllerRef.current = new AbortController();
-      const res = await fetch('http://localhost:8000/chat/stream', {
+      const response = await fetch('http://localhost:8000/chat/stream', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controllerRef.current.signal,
-        body: JSON.stringify({ 
-          prompt: prompt,
-          use_rag: useRag 
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: input,
+          use_rag: useRAG
         }),
       });
 
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
+      if (!response.ok) {
+        throw new Error('Failed to send message');
       }
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
+      const data = await response.json();
+      const assistantMessage = {
+        role: 'assistant',
+        content: data.response,
+        sources: data.sources || []
+      };
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) {
-          if (buffer.trim()) {
-            setResponse(prev => [...prev, buffer.trim()]);
-          }
-          break;
-        }
-        const chunk = decoder.decode(value, { stream: true });
-        chunk.split('\n').forEach(line => {
-          if (line.startsWith('data:')) {
-            const content = line.slice(5).trim();
-            if (content && content !== '[DONE]') {
-              if (content.startsWith('[ERROR]')) {
-                setError(content.slice(7));
-                setIsStreaming(false);
-              } else if (content.startsWith('[CONTEXT]')) {
-                setContextInfo(content.slice(9).trim());
-              } else {
-                buffer += content + '\n';
-                // Split by section headers or bullets
-                const lines = buffer.split(/(?=\d+\s*letters\s*:|- )|\n+/i);
-                buffer = lines.pop() || '';
-                lines.forEach(line => {
-                  if (line.trim()) {
-                    setResponse(prev => [...prev, line.trim()]);
-                  }
-                });
-              }
-            }
-          }
-        });
-      }
-    } catch (err) {
-      if (err.name !== 'AbortError') {
-        setError(`Failed to fetch response: ${err.message}`);
-      }
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage = {
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+        error: true
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setIsStreaming(false);
+      setIsLoading(false);
     }
   };
 
-  const handleStop = () => {
-    if (controllerRef.current) {
-      controllerRef.current.abort();
-      setIsStreaming(false);
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
-  };
-
-  const handleClear = () => {
-    setPrompt('');
-    setResponse([]);
-    setError('');
-    setContextInfo(null);
   };
 
   return (
-    <div style={{ padding: 20, maxWidth: 800, margin: '0 auto' }}>
-      <h2>🧠 RAG-Enhanced Chatbot</h2>
-      
-      <div style={{ marginBottom: '15px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-          <input
-            type="checkbox"
-            checked={useRag}
-            onChange={(e) => setUseRag(e.target.checked)}
-            style={{ marginRight: '8px' }}
-          />
-          <span>Use RAG (Retrieval-Augmented Generation)</span>
-        </label>
-        <small style={{ color: '#666' }}>
-          When enabled, the chatbot will use information from your uploaded documents to provide more accurate answers.
-        </small>
+    <div className="chat-container">
+      <div className="messages-container">
+        {messages.map((message, index) => (
+          <div key={index} className={`message ${message.role}`}>
+            <div className="message-content">
+              {message.content}
+              {message.sources && message.sources.length > 0 && (
+                <div className="sources">
+                  <strong>Sources:</strong>
+                  <ul>
+                    {message.sources.map((source, idx) => (
+                      <li key={idx}>{source}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="message assistant loading">
+            <div className="message-content">Thinking...</div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
-
-      <textarea
-        rows={4}
-        cols={60}
-        value={prompt}
-        onChange={e => setPrompt(e.target.value)}
-        placeholder="Ask me anything..."
-        disabled={isStreaming}
-        style={{ 
-          width: '100%', 
-          resize: 'vertical',
-          padding: '10px',
-          border: '1px solid #ccc',
-          borderRadius: '4px',
-          fontSize: '14px'
-        }}
-      />
-      
-      <div style={{ margin: '10px 0' }}>
-        <button 
-          onClick={handleSubmit} 
-          disabled={isStreaming || !prompt.trim()}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isStreaming || !prompt.trim() ? 'not-allowed' : 'pointer',
-            marginRight: '10px'
-          }}
-        >
-          Ask
-        </button>
-        <button 
-          onClick={handleStop} 
-          disabled={!isStreaming}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#dc3545',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: !isStreaming ? 'not-allowed' : 'pointer',
-            marginRight: '10px'
-          }}
-        >
-          Stop
-        </button>
-        <button 
-          onClick={handleClear} 
-          disabled={isStreaming}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: isStreaming ? 'not-allowed' : 'pointer'
-          }}
-        >
-          Clear
+      <div className="input-container">
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="Type your message here..."
+          disabled={isLoading}
+          rows="3"
+        />
+        <button onClick={sendMessage} disabled={isLoading || !input.trim()}>
+          Send
         </button>
       </div>
+      <style jsx>{`
+        .chat-container {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+        }
 
-      {error && (
-        <div style={{ 
-          color: '#721c24', 
-          backgroundColor: '#f8d7da',
-          border: '1px solid #f5c6cb',
-          padding: '10px',
-          borderRadius: '4px',
-          marginBottom: '10px' 
-        }}>
-          {error}
-        </div>
-      )}
+        .messages-container {
+          flex: 1;
+          overflow-y: auto;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          margin-bottom: 10px;
+          background-color: #fafafa;
+        }
 
-      {contextInfo && (
-        <div style={{ 
-          color: '#155724', 
-          backgroundColor: '#d4edda',
-          border: '1px solid #c3e6cb',
-          padding: '10px',
-          borderRadius: '4px',
-          marginBottom: '10px' 
-        }}>
-          📖 {contextInfo}
-        </div>
-      )}
+        .message {
+          margin-bottom: 15px;
+          padding: 10px;
+          border-radius: 8px;
+          max-width: 80%;
+        }
 
-      {isStreaming && (
-        <div style={{ 
-          color: '#004085',
-          backgroundColor: '#cce7ff',
-          border: '1px solid #99d6ff',
-          padding: '10px',
-          borderRadius: '4px',
-          marginBottom: '10px'
-        }}>
-          🤖 Generating response...
-        </div>
-      )}
+        .message.user {
+          background-color: #007bff;
+          color: white;
+          margin-left: auto;
+          text-align: right;
+        }
 
-      <div style={{ 
-        marginTop: 20, 
-        whiteSpace: 'pre-wrap', 
-        border: '1px solid #ccc', 
-        padding: 15,
-        borderRadius: '4px',
-        backgroundColor: '#f8f9fa',
-        minHeight: '200px'
-      }}>
-        <strong>Response:</strong>
-        <div style={{ marginTop: '10px' }}>
-          {response.length ? (
-            response.map((line, index) => (
-              <div key={index} style={{ marginBottom: 8, lineHeight: '1.5' }}>
-                {line.startsWith('-') ? (
-                  <li style={{ marginLeft: '20px' }}>{line.slice(2).trim()}</li>
-                ) : (
-                  line
-                )}
-              </div>
-            ))
-          ) : (
-            <div style={{ color: '#666', fontStyle: 'italic' }}>No response yet.</div>
-          )}
-        </div>
-      </div>
+        .message.assistant {
+          background-color: #e9ecef;
+          color: #333;
+          margin-right: auto;
+        }
+
+        .message.loading {
+          opacity: 0.7;
+          font-style: italic;
+        }
+
+        .sources {
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid #ccc;
+          font-size: 0.9em;
+        }
+
+        .sources ul {
+          margin: 5px 0;
+          padding-left: 20px;
+        }
+
+        .input-container {
+          display: flex;
+          gap: 10px;
+          align-items: flex-end;
+        }
+
+        .input-container textarea {
+          flex: 1;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          resize: vertical;
+          min-height: 60px;
+        }
+
+        .input-container button {
+          padding: 10px 20px;
+          background-color: #007bff;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          height: fit-content;
+        }
+
+        .input-container button:disabled {
+          background-color: #6c757d;
+          cursor: not-allowed;
+        }
+
+        .input-container button:hover:not(:disabled) {
+          background-color: #0056b3;
+        }
+      `}</style>
     </div>
   );
 };
