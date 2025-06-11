@@ -1,45 +1,37 @@
 import re
-import tiktoken
 from typing import List, Dict
-import logging
-
-logger = logging.getLogger(__name__)
+from config import settings
 
 class DocumentProcessor:
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
-        self.chunk_size = chunk_size
-        self.chunk_overlap = chunk_overlap
-        self.encoding = tiktoken.get_encoding("cl100k_base")
+    def __init__(self):
+        self.chunk_size = settings.chunk_size
+        self.chunk_overlap = settings.chunk_overlap
     
-    def process_document(self, document: Dict) -> List[Dict]:
-        """Process a document into chunks with metadata"""
-        content = document['content']
-        title = document['title']
-        document_id = document['document_id']
+    def process_document(self, doc_content: dict, document_id: str) -> List[Dict]:
+        """Process document into chunks for vector storage"""
+        text = doc_content['content']
+        title = doc_content['title']
         
-        # Clean and preprocess text
-        cleaned_content = self._clean_text(content)
+        # Clean and normalize text
+        cleaned_text = self._clean_text(text)
         
         # Split into chunks
-        chunks = self._split_text_into_chunks(cleaned_content)
+        chunks = self._split_text(cleaned_text)
         
-        # Create chunk documents with metadata
+        # Create document chunks with metadata
         processed_chunks = []
         for i, chunk in enumerate(chunks):
-            chunk_doc = {
+            processed_chunks.append({
+                'id': f"{document_id}_{i}",
                 'content': chunk,
                 'metadata': {
-                    'source': 'google_docs',
                     'document_id': document_id,
                     'title': title,
                     'chunk_index': i,
-                    'total_chunks': len(chunks),
-                    'token_count': len(self.encoding.encode(chunk))
+                    'source': f"Google Doc: {title}"
                 }
-            }
-            processed_chunks.append(chunk_doc)
+            })
         
-        logger.info(f"Processed document '{title}' into {len(chunks)} chunks")
         return processed_chunks
     
     def _clean_text(self, text: str) -> str:
@@ -48,63 +40,42 @@ class DocumentProcessor:
         text = re.sub(r'\s+', ' ', text)
         
         # Remove special characters but keep punctuation
-        text = re.sub(r'[^\w\s\.\,\!\?\;\:\-\(\)\[\]\{\}\"\'\/]', '', text)
-        
-        # Normalize quotes
-        text = re.sub(r'["""]', '"', text)
-        text = re.sub(r'[''']', "'", text)
+        text = re.sub(r'[^\w\s\.\,\!\?\;\:\-\(\)]', '', text)
         
         return text.strip()
     
-    def _split_text_into_chunks(self, text: str) -> List[str]:
-        """Split text into overlapping chunks based on token count"""
-        tokens = self.encoding.encode(text)
-        chunks = []
+    def _split_text(self, text: str) -> List[str]:
+        """Split text into overlapping chunks"""
+        if len(text) <= self.chunk_size:
+            return [text]
         
+        chunks = []
         start = 0
-        while start < len(tokens):
-            end = min(start + self.chunk_size, len(tokens))
-            chunk_tokens = tokens[start:end]
-            chunk_text = self.encoding.decode(chunk_tokens)
+        
+        while start < len(text):
+            end = start + self.chunk_size
             
-            # Try to break at sentence boundaries
-            if end < len(tokens):
-                chunk_text = self._break_at_sentence_boundary(chunk_text)
+            # If we're not at the end, try to break at a sentence boundary
+            if end < len(text):
+                # Look for sentence endings within the last 100 characters
+                last_period = text.rfind('.', start, end)
+                last_exclamation = text.rfind('!', start, end)
+                last_question = text.rfind('?', start, end)
+                
+                sentence_end = max(last_period, last_exclamation, last_question)
+                
+                if sentence_end > start + self.chunk_size // 2:
+                    end = sentence_end + 1
             
-            chunks.append(chunk_text)
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
             
             # Move start position with overlap
             start = end - self.chunk_overlap
-            if start >= len(tokens):
-                break
+            
+            # Ensure we don't go backwards
+            if start <= 0:
+                start = end
         
         return chunks
-    
-    def _break_at_sentence_boundary(self, text: str) -> str:
-        """Try to break chunk at a sentence boundary"""
-        sentences = re.split(r'[.!?]+', text)
-        if len(sentences) > 1:
-            # Remove the last incomplete sentence
-            return '.'.join(sentences[:-1]) + '.'
-        return text
-    
-    def extract_keywords(self, text: str) -> List[str]:
-        """Extract key terms from text for better retrieval"""
-        # Simple keyword extraction - can be enhanced with NLP libraries
-        words = re.findall(r'\b[A-Za-z]{3,}\b', text.lower())
-        
-        # Remove common stop words
-        stop_words = {
-            'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
-            'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before',
-            'after', 'above', 'below', 'between', 'among', 'this', 'that', 'these',
-            'those', 'was', 'were', 'been', 'have', 'has', 'had', 'will', 'would',
-            'could', 'should', 'may', 'might', 'can', 'must', 'shall'
-        }
-        
-        keywords = [word for word in words if word not in stop_words]
-        
-        # Return unique keywords, sorted by frequency
-        from collections import Counter
-        word_counts = Counter(keywords)
-        return [word for word, count in word_counts.most_common(20)]
