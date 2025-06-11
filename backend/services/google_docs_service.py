@@ -6,66 +6,55 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from config import settings
-
-SCOPES = ['https://www.googleapis.com/auth/documents.readonly']
-
 class GoogleDocsService:
-    def __init__(self):
-        self.service = None
-        self._authenticate()
+    SCOPES = ['https://www.googleapis.com/auth/documents.readonly']
+    
+    def __init__(self, credentials_path):
+        self.credentials_path = credentials_path
+        self.service = self._authenticate()
     
     def _authenticate(self):
-        """Authenticate with Google Docs API"""
         creds = None
+        token_path = 'token.pickle'
         
-        # Token file stores the user's access and refresh tokens
-        if os.path.exists('token.pickle'):
-            with open('token.pickle', 'rb') as token:
+        # Load existing token
+        if os.path.exists(token_path):
+            with open(token_path, 'rb') as token:
                 creds = pickle.load(token)
         
-        # If there are no (valid) credentials available, let the user log in
+        # If no valid credentials, get new ones
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
-                if not os.path.exists(settings.google_credentials_path):
-                    raise FileNotFoundError(f"Google credentials file not found: {settings.google_credentials_path}")
-                
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    settings.google_credentials_path, SCOPES)
+                    self.credentials_path, self.SCOPES)
                 creds = flow.run_local_server(port=0)
             
-            # Save the credentials for the next run
-            with open('token.pickle', 'wb') as token:
+            # Save credentials for next run
+            with open(token_path, 'wb') as token:
                 pickle.dump(creds, token)
         
-        self.service = build('docs', 'v1', credentials=creds)
+        return build('docs', 'v1', credentials=creds)
     
-    async def get_document(self, document_id: str) -> dict:
-        """Retrieve document content from Google Docs"""
+    def get_document_content(self, document_id):
         try:
             document = self.service.documents().get(documentId=document_id).execute()
             
-            # Extract text content
-            content = self._extract_text(document)
+            title = document.get('title', 'Untitled')
+            content = self._extract_text_from_document(document)
             
             return {
                 'id': document_id,
-                'title': document.get('title', 'Untitled'),
+                'title': title,
                 'content': content,
-                'metadata': {
-                    'document_id': document_id,
-                    'title': document.get('title', 'Untitled'),
-                    'revision_id': document.get('revisionId', ''),
-                }
+                'url': f'https://docs.google.com/document/d/{document_id}/edit'
             }
         except HttpError as error:
-            raise Exception(f"An error occurred: {error}")
+            raise Exception(f'An error occurred: {error}')
     
-    def _extract_text(self, document: dict) -> str:
-        """Extract plain text from Google Docs document structure"""
-        text = ""
+    def _extract_text_from_document(self, document):
+        text = ''
         content = document.get('body', {}).get('content', [])
         
         for element in content:

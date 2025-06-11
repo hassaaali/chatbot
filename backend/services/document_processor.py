@@ -1,47 +1,47 @@
 import re
 from typing import List, Dict
-from config import settings
 
 class DocumentProcessor:
-    def __init__(self):
-        self.chunk_size = settings.chunk_size
-        self.chunk_overlap = settings.chunk_overlap
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
     
-    def process_document(self, doc_content: dict, document_id: str) -> List[Dict]:
-        """Process document into chunks for vector storage"""
-        text = doc_content['content']
-        title = doc_content['title']
+    def process_document(self, document: Dict, document_id: str) -> List[Dict]:
+        """Process a document into chunks with metadata"""
+        content = document['content']
+        title = document['title']
+        url = document['url']
         
-        # Clean and normalize text
-        cleaned_text = self._clean_text(text)
+        # Clean the text
+        cleaned_content = self._clean_text(content)
         
         # Split into chunks
-        chunks = self._split_text(cleaned_text)
+        chunks = self._split_text(cleaned_content)
         
-        # Create document chunks with metadata
-        processed_chunks = []
+        # Create chunk documents with metadata
+        chunk_documents = []
         for i, chunk in enumerate(chunks):
-            processed_chunks.append({
-                'id': f"{document_id}_{i}",
+            chunk_doc = {
+                'id': f"{document_id}_chunk_{i}",
                 'content': chunk,
                 'metadata': {
-                    'document_id': document_id,
+                    'source_id': document_id,
                     'title': title,
+                    'url': url,
                     'chunk_index': i,
-                    'source': f"Google Doc: {title}"
+                    'total_chunks': len(chunks)
                 }
-            })
+            }
+            chunk_documents.append(chunk_doc)
         
-        return processed_chunks
+        return chunk_documents
     
     def _clean_text(self, text: str) -> str:
-        """Clean and normalize text content"""
-        # Remove excessive whitespace
+        """Clean and normalize text"""
+        # Remove extra whitespace
         text = re.sub(r'\s+', ' ', text)
-        
         # Remove special characters but keep punctuation
         text = re.sub(r'[^\w\s\.\,\!\?\;\:\-\(\)]', '', text)
-        
         return text.strip()
     
     def _split_text(self, text: str) -> List[str]:
@@ -55,16 +55,11 @@ class DocumentProcessor:
         while start < len(text):
             end = start + self.chunk_size
             
-            # If we're not at the end, try to break at a sentence boundary
+            # If this is not the last chunk, try to break at a sentence boundary
             if end < len(text):
-                # Look for sentence endings within the last 100 characters
-                last_period = text.rfind('.', start, end)
-                last_exclamation = text.rfind('!', start, end)
-                last_question = text.rfind('?', start, end)
-                
-                sentence_end = max(last_period, last_exclamation, last_question)
-                
-                if sentence_end > start + self.chunk_size // 2:
+                # Look for sentence endings within the overlap region
+                sentence_end = text.rfind('.', start, end)
+                if sentence_end > start:
                     end = sentence_end + 1
             
             chunk = text[start:end].strip()
@@ -73,9 +68,7 @@ class DocumentProcessor:
             
             # Move start position with overlap
             start = end - self.chunk_overlap
-            
-            # Ensure we don't go backwards
-            if start <= 0:
-                start = end
+            if start >= len(text):
+                break
         
         return chunks

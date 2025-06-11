@@ -1,16 +1,13 @@
 import os
-from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
 
-class Settings(BaseSettings):
-    together_api_key: str = ""
-    google_credentials_path: str = "credentials.json"
-    chroma_db_path: str = "./chroma_db"
-    embedding_model: str = "all-MiniLM-L6-v2"
-    chunk_size: int = 1000
-    chunk_overlap: int = 200
-    max_retrieval_results: int = 5
-    
-    class Config:
-        env_file = ".env"
+load_dotenv()
 
-settings = Settings()
+class Config:
+    TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
+    GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH", "credentials.json")
+    CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
+    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
+    MAX_RETRIEVAL_RESULTS = int(os.getenv("MAX_RETRIEVAL_RESULTS", "5"))
