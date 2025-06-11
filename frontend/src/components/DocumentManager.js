@@ -143,6 +143,7 @@ const DocumentManager = () => {
           {isLoading ? 'Adding...' : 'Add Document'}
         </button>
         {error && <div className="error">{error}</div>}
+        }
       </div>
 
       {stats && (
