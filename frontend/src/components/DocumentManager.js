@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 
 const DocumentManager = () => {
   const [documentId, setDocumentId] = useState('');
+  const [title, setTitle] = useState('');
   const [documents, setDocuments] = useState([]);
   const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchStats();
@@ -23,31 +25,41 @@ const DocumentManager = () => {
   };
 
   const addDocument = async () => {
-    if (!documentId.trim()) return;
+    if (!documentId.trim()) {
+      setError('Please enter a Google Doc ID');
+      return;
+    }
 
     setIsLoading(true);
+    setError('');
+    
     try {
       const response = await fetch('http://localhost:8000/documents/add', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ document_id: documentId }),
+        body: JSON.stringify({ 
+          document_id: documentId.trim(),
+          title: title.trim() || null
+        }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
-        setDocuments(prev => [...prev, data]);
+        setDocuments(prev => [...prev, data.document_info]);
         setDocumentId('');
+        setTitle('');
         fetchStats();
-        alert('Document added successfully!');
+        setError('');
+        alert(`Document "${data.document_info.title}" added successfully!`);
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.detail || 'Failed to add document'}`);
+        setError(data.detail || 'Failed to add document');
       }
     } catch (error) {
       console.error('Error adding document:', error);
-      alert('Error adding document. Please try again.');
+      setError('Error connecting to server. Make sure the backend is running on http://localhost:8000');
     } finally {
       setIsLoading(false);
     }
@@ -60,11 +72,12 @@ const DocumentManager = () => {
       });
 
       if (response.ok) {
-        setDocuments(prev => prev.filter(doc => doc.id !== docId));
+        setDocuments(prev => prev.filter(doc => doc.document_id !== docId));
         fetchStats();
         alert('Document removed successfully!');
       } else {
-        alert('Error removing document');
+        const data = await response.json();
+        alert(`Error: ${data.detail || 'Failed to remove document'}`);
       }
     } catch (error) {
       console.error('Error removing document:', error);
@@ -87,12 +100,24 @@ const DocumentManager = () => {
         fetchStats();
         alert('All documents cleared successfully!');
       } else {
-        alert('Error clearing documents');
+        const data = await response.json();
+        alert(`Error: ${data.detail || 'Failed to clear documents'}`);
       }
     } catch (error) {
       console.error('Error clearing documents:', error);
       alert('Error clearing documents. Please try again.');
     }
+  };
+
+  const extractDocIdFromUrl = (url) => {
+    const match = url.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
+    return match ? match[1] : url;
+  };
+
+  const handleDocumentIdChange = (e) => {
+    const value = e.target.value;
+    const extractedId = extractDocIdFromUrl(value);
+    setDocumentId(extractedId);
   };
 
   return (
@@ -103,20 +128,38 @@ const DocumentManager = () => {
         <input
           type="text"
           value={documentId}
-          onChange={(e) => setDocumentId(e.target.value)}
-          placeholder="Google Doc ID"
+          onChange={handleDocumentIdChange}
+          placeholder="Google Doc ID or URL"
+          disabled={isLoading}
+        />
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Custom title (optional)"
           disabled={isLoading}
         />
         <button onClick={addDocument} disabled={isLoading || !documentId.trim()}>
           {isLoading ? 'Adding...' : 'Add Document'}
         </button>
+        {error && <div className="error">{error}</div>}
       </div>
 
       {stats && (
         <div className="stats">
           <h4>Knowledge Base Stats</h4>
-          <p>Documents: {stats.total_documents}</p>
-          <p>Chunks: {stats.total_chunks}</p>
+          <p>Total Documents: {stats.vector_store_stats?.total_documents || 0}</p>
+          <p>Embedding Model: {stats.vector_store_stats?.embedding_model || 'N/A'}</p>
+          {stats.vector_store_stats?.sources && (
+            <div>
+              <p>Sources:</p>
+              <ul>
+                {Object.entries(stats.vector_store_stats.sources).map(([source, count]) => (
+                  <li key={source}>{source}: {count} chunks</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
@@ -127,9 +170,13 @@ const DocumentManager = () => {
         ) : (
           <ul>
             {documents.map((doc) => (
-              <li key={doc.id}>
-                <span>{doc.title || doc.id}</span>
-                <button onClick={() => removeDocument(doc.id)}>Remove</button>
+              <li key={doc.document_id}>
+                <div className="doc-info">
+                  <span className="doc-title">{doc.title}</span>
+                  <span className="doc-id">ID: {doc.document_id}</span>
+                  <span className="doc-length">Length: {doc.content_length} chars</span>
+                </div>
+                <button onClick={() => removeDocument(doc.document_id)}>Remove</button>
               </li>
             ))}
           </ul>
@@ -141,6 +188,17 @@ const DocumentManager = () => {
           Clear All Documents
         </button>
       )}
+
+      <div className="instructions">
+        <h4>How to add a Google Doc:</h4>
+        <ol>
+          <li>Open your Google Doc</li>
+          <li>Make sure it's shared (at least view access)</li>
+          <li>Copy the document ID from the URL or paste the full URL</li>
+          <li>Optionally add a custom title</li>
+          <li>Click "Add Document"</li>
+        </ol>
+      </div>
 
       <style jsx>{`
         .document-manager {
@@ -186,6 +244,14 @@ const DocumentManager = () => {
           cursor: not-allowed;
         }
 
+        .error {
+          color: #dc3545;
+          font-size: 0.9em;
+          padding: 5px;
+          background-color: #f8d7da;
+          border-radius: 4px;
+        }
+
         .stats {
           background-color: #f8f9fa;
           padding: 10px;
@@ -203,6 +269,12 @@ const DocumentManager = () => {
           font-size: 0.9em;
         }
 
+        .stats ul {
+          margin: 5px 0;
+          padding-left: 20px;
+          font-size: 0.8em;
+        }
+
         .document-list h4 {
           margin-bottom: 10px;
         }
@@ -216,10 +288,26 @@ const DocumentManager = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 8px;
+          padding: 10px;
           background-color: #f8f9fa;
-          margin-bottom: 5px;
+          margin-bottom: 8px;
           border-radius: 4px;
+        }
+
+        .doc-info {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+        }
+
+        .doc-title {
+          font-weight: bold;
+          margin-bottom: 2px;
+        }
+
+        .doc-id, .doc-length {
+          font-size: 0.8em;
+          color: #666;
         }
 
         .document-list button {
@@ -249,6 +337,27 @@ const DocumentManager = () => {
 
         .clear-all:hover {
           background-color: #c82333;
+        }
+
+        .instructions {
+          margin-top: 20px;
+          padding-top: 15px;
+          border-top: 1px solid #ddd;
+        }
+
+        .instructions h4 {
+          margin-bottom: 10px;
+          color: #333;
+        }
+
+        .instructions ol {
+          font-size: 0.9em;
+          color: #666;
+          padding-left: 20px;
+        }
+
+        .instructions li {
+          margin-bottom: 5px;
         }
       `}</style>
     </div>

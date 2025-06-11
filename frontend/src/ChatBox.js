@@ -29,28 +29,56 @@ const ChatBox = ({ useRAG }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: input,
+          prompt: input,
           use_rag: useRAG
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get response');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      const assistantMessage = {
-        role: 'assistant',
-        content: data.response,
-        sources: data.sources || []
-      };
-
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let assistantMessage = { role: 'assistant', content: '', sources: [] };
+      
       setMessages(prev => [...prev, assistantMessage]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') break;
+            
+            if (data.startsWith('[CONTEXT]')) {
+              // Extract source information
+              const contextInfo = data.replace('[CONTEXT] Using information from: ', '');
+              assistantMessage.sources = contextInfo.split(', ');
+            } else if (data.startsWith('[ERROR]')) {
+              assistantMessage.content += `Error: ${data.replace('[ERROR] ', '')}`;
+            } else if (data.trim()) {
+              assistantMessage.content += data;
+            }
+
+            setMessages(prev => {
+              const newMessages = [...prev];
+              newMessages[newMessages.length - 1] = { ...assistantMessage };
+              return newMessages;
+            });
+          }
+        }
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: 'Sorry, I encountered an error. Please make sure the backend server is running on http://localhost:8000',
         error: true
       };
       setMessages(prev => [...prev, errorMessage]);
