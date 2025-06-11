@@ -11,3 +11,9 @@ class Config:
     CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
     CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
     MAX_RETRIEVAL_RESULTS = int(os.getenv("MAX_RETRIEVAL_RESULTS", "5"))
+    
+    @classmethod
+    def validate(cls):
+        if not cls.TOGETHER_API_KEY:
+            raise RuntimeError("TOGETHER_API_KEY not set in environment variables")
+        return True
