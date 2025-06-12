@@ -1,63 +1,94 @@
-import together
-from typing import AsyncGenerator, Dict, List, Optional
-import asyncio
-import json
-from config import Config
+from typing import List, Dict, Optional
+import logging
+from .vector_store import VectorStore
+from .document_processor import DocumentProcessor
+
+logger = logging.getLogger(__name__)
 
 class RAGService:
-    def __init__(self, vector_store, max_retrieval_results: int = 5):
+    def __init__(self, vector_store: VectorStore, document_processor: DocumentProcessor):
         self.vector_store = vector_store
-        self.max_retrieval_results = max_retrieval_results
-        self.config = Config()
-        
-        # Initialize Together client
-        together.api_key = self.config.TOGETHER_API_KEY
+        self.document_processor = document_processor
+        self.documents = {}  # Store document metadata
     
-    async def chat_with_rag(self, query: str) -> AsyncGenerator[Dict, None]:
-        """Chat with RAG enhancement"""
-        # Retrieve relevant documents
-        relevant_docs = self.vector_store.search(query, self.max_retrieval_results)
+    def add_document(self, document: Dict):
+        """Add a document to the RAG system"""
+        try:
+            document_id = document['id']
+            
+            # Process document into chunks
+            chunks = self.document_processor.process_document(document, document_id)
+            
+            # Add chunks to vector store
+            self.vector_store.add_documents(chunks)
+            
+            # Store document metadata
+            self.documents[document_id] = {
+                'title': document['title'],
+                'url': document.get('url', ''),
+                'content_length': len(document['content']),
+                'chunks_count': len(chunks)
+            }
+            
+            logger.info(f"Added document '{document['title']}' with {len(chunks)} chunks")
+            
+        except Exception as e:
+            logger.error(f"Error adding document: {e}")
+            raise
+    
+    def delete_document(self, document_id: str):
+        """Remove a document from the RAG system"""
+        try:
+            # Remove from vector store
+            self.vector_store.remove_document(document_id)
+            
+            # Remove from local metadata
+            if document_id in self.documents:
+                del self.documents[document_id]
+            
+            logger.info(f"Removed document {document_id}")
+            
+        except Exception as e:
+            logger.error(f"Error removing document: {e}")
+            raise
+    
+    def clear_all_documents(self):
+        """Clear all documents from the RAG system"""
+        try:
+            self.vector_store.clear_all()
+            self.documents.clear()
+            logger.info("Cleared all documents")
+            
+        except Exception as e:
+            logger.error(f"Error clearing documents: {e}")
+            raise
+    
+    def retrieve_context(self, query: str, max_results: int = 5) -> List[Dict]:
+        """Retrieve relevant context for a query"""
+        try:
+            results = self.vector_store.search(query, max_results)
+            return results
+            
+        except Exception as e:
+            logger.error(f"Error retrieving context: {e}")
+            return []
+    
+    def generate_rag_prompt(self, query: str, context_results: List[Dict]) -> str:
+        """Generate an enhanced prompt with context"""
+        if not context_results:
+            return query
         
         # Build context from retrieved documents
-        context = self._build_context(relevant_docs)
-        
-        # Create enhanced prompt
-        enhanced_prompt = self._create_rag_prompt(query, context)
-        
-        # Get sources for attribution
-        sources = self._extract_sources(relevant_docs)
-        
-        # Stream response
-        async for chunk in self._stream_response(enhanced_prompt):
-            chunk['sources'] = sources
-            yield chunk
-    
-    async def chat_without_rag(self, query: str) -> AsyncGenerator[Dict, None]:
-        """Chat without RAG enhancement"""
-        prompt = f"User: {query}\nAssistant:"
-        
-        async for chunk in self._stream_response(prompt):
-            yield chunk
-    
-    def _build_context(self, relevant_docs: List[Dict]) -> str:
-        """Build context string from relevant documents"""
-        if not relevant_docs:
-            return ""
-        
         context_parts = []
-        for doc in relevant_docs:
-            title = doc['metadata'].get('title', 'Unknown Document')
-            content = doc['content']
+        for result in context_results:
+            title = result['metadata'].get('title', 'Unknown Document')
+            content = result['content']
             context_parts.append(f"From '{title}':\n{content}")
         
-        return "\n\n".join(context_parts)
-    
-    def _create_rag_prompt(self, query: str, context: str) -> str:
-        """Create enhanced prompt with context"""
-        if not context:
-            return f"User: {query}\nAssistant:"
+        context = "\n\n".join(context_parts)
         
-        prompt = f"""You are a helpful assistant. Use the following context to answer the user's question. If the context doesn't contain relevant information, say so clearly.
+        # Create enhanced prompt
+        enhanced_prompt = f"""You are a helpful assistant. Use the following context to answer the user's question. If the context doesn't contain relevant information, say so clearly and provide a general response.
 
 Context:
 {context}
@@ -65,48 +96,43 @@ Context:
 User: {query}
 Assistant:"""
         
-        return prompt
+        return enhanced_prompt
     
-    def _extract_sources(self, relevant_docs: List[Dict]) -> List[str]:
-        """Extract unique sources from relevant documents"""
-        sources = set()
-        for doc in relevant_docs:
-            metadata = doc['metadata']
-            title = metadata.get('title', 'Unknown Document')
-            url = metadata.get('url', '')
-            if url:
-                sources.add(f"{title} ({url})")
-            else:
-                sources.add(title)
-        
-        return list(sources)
-    
-    async def _stream_response(self, prompt: str) -> AsyncGenerator[Dict, None]:
-        """Stream response from Together API"""
+    def get_system_stats(self) -> Dict:
+        """Get RAG system statistics"""
         try:
-            response = together.Complete.create(
-                prompt=prompt,
-                model="meta-llama/Llama-2-7b-chat-hf",
-                max_tokens=512,
-                temperature=0.7,
-                stream=True
-            )
+            vector_stats = self.vector_store.get_stats()
             
-            for chunk in response:
-                if 'choices' in chunk and len(chunk['choices']) > 0:
-                    content = chunk['choices'][0].get('text', '')
-                    if content:
-                        yield {
-                            'type': 'content',
-                            'content': content
-                        }
+            # Calculate sources breakdown
+            sources = {}
+            for doc_id, doc_info in self.documents.items():
+                title = doc_info['title']
+                sources[title] = doc_info['chunks_count']
             
-            yield {
-                'type': 'done'
+            return {
+                'vector_store_stats': {
+                    'total_documents': len(self.documents),
+                    'total_chunks': vector_stats['total_chunks'],
+                    'embedding_model': vector_stats['embedding_model'],
+                    'sources': sources
+                },
+                'processor_config': {
+                    'chunk_size': self.document_processor.chunk_size,
+                    'chunk_overlap': self.document_processor.chunk_overlap
+                }
             }
             
         except Exception as e:
-            yield {
-                'type': 'error',
-                'content': f'Error: {str(e)}'
+            logger.error(f"Error getting stats: {e}")
+            return {
+                'vector_store_stats': {
+                    'total_documents': 0,
+                    'total_chunks': 0,
+                    'embedding_model': 'unknown',
+                    'sources': {}
+                },
+                'processor_config': {
+                    'chunk_size': 1000,
+                    'chunk_overlap': 200
+                }
             }

@@ -19,31 +19,51 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Validate configuration
-Config.validate()
+try:
+    Config.validate()
+    logger.info("Configuration validated successfully")
+except Exception as e:
+    logger.warning(f"Configuration validation failed: {e}")
 
 app = FastAPI(title="RAG-Enhanced Chatbot API", version="1.0.0")
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
 # Initialize services
+google_docs_service = None
+document_processor = None
+vector_store = None
+rag_service = None
+
 try:
-    google_docs_service = GoogleDocsService(Config.GOOGLE_CREDENTIALS_PATH)
+    # Initialize document processor
     document_processor = DocumentProcessor(Config.CHUNK_SIZE, Config.CHUNK_OVERLAP)
+    logger.info("Document processor initialized")
+    
+    # Initialize vector store
     vector_store = VectorStore(Config.CHROMA_DB_PATH, Config.EMBEDDING_MODEL)
+    logger.info("Vector store initialized")
+    
+    # Initialize RAG service
     rag_service = RAGService(vector_store, document_processor)
-    logger.info("All services initialized successfully")
+    logger.info("RAG service initialized")
+    
+    # Initialize Google Docs service (optional)
+    if os.path.exists(Config.GOOGLE_CREDENTIALS_PATH):
+        google_docs_service = GoogleDocsService(Config.GOOGLE_CREDENTIALS_PATH)
+        logger.info("Google Docs service initialized")
+    else:
+        logger.warning(f"Google credentials file not found at {Config.GOOGLE_CREDENTIALS_PATH}")
+        
 except Exception as e:
     logger.error(f"Failed to initialize services: {e}")
-    # Continue without RAG functionality
-    google_docs_service = None
-    rag_service = None
 
 # Pydantic models
 class PromptRequest(BaseModel):
@@ -70,15 +90,22 @@ async def health_check():
         "services": {
             "google_docs": google_docs_service is not None,
             "rag": rag_service is not None,
-            "vector_store": vector_store is not None
+            "vector_store": vector_store is not None,
+            "document_processor": document_processor is not None
         }
     }
 
 @app.post("/documents/add")
 async def add_document(request: DocumentRequest) -> DocumentResponse:
     """Add a Google Doc to the RAG system"""
-    if not google_docs_service or not rag_service:
-        raise HTTPException(status_code=503, detail="RAG services not available")
+    if not google_docs_service:
+        raise HTTPException(
+            status_code=503, 
+            detail="Google Docs service not available. Please ensure credentials.json is configured."
+        )
+    
+    if not rag_service:
+        raise HTTPException(status_code=503, detail="RAG service not available")
     
     try:
         # Retrieve document from Google Docs
@@ -96,7 +123,7 @@ async def add_document(request: DocumentRequest) -> DocumentResponse:
             message=f"Successfully added document '{document['title']}'",
             document_info={
                 "title": document['title'],
-                "document_id": document['document_id'],
+                "document_id": document['id'],
                 "content_length": len(document['content'])
             }
         )
@@ -180,6 +207,11 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
             if context_info:
                 yield f"data: [CONTEXT] Using information from: {', '.join(context_info['sources'])}\n\n"
             
+            # Check if Together API key is available
+            if not Config.TOGETHER_API_KEY:
+                yield f"data: [ERROR] Together AI API key not configured. Please set TOGETHER_API_KEY in your environment.\n\n"
+                return
+            
             async with httpx.AsyncClient(timeout=60.0) as client:
                 async with client.stream(
                     "POST",
@@ -196,7 +228,10 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
                 ) as response:
                     if response.status_code != 200:
                         logger.error(f"Together API error: {response.status_code}")
-                        raise HTTPException(status_code=response.status_code, detail="Failed to connect to Together AI")
+                        error_text = await response.atext()
+                        logger.error(f"Error details: {error_text}")
+                        yield f"data: [ERROR] API Error: {response.status_code}\n\n"
+                        return
                     
                     async for line in response.aiter_lines():
                         if line.startswith("data:"):

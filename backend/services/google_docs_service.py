@@ -5,6 +5,9 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+import logging
+
+logger = logging.getLogger(__name__)
 
 class GoogleDocsService:
     SCOPES = ['https://www.googleapis.com/auth/documents.readonly']
@@ -38,6 +41,7 @@ class GoogleDocsService:
         return build('docs', 'v1', credentials=creds)
     
     def get_document_content(self, document_id):
+        """Retrieve document content from Google Docs"""
         try:
             document = self.service.documents().get(documentId=document_id).execute()
             
@@ -51,9 +55,14 @@ class GoogleDocsService:
                 'url': f'https://docs.google.com/document/d/{document_id}/edit'
             }
         except HttpError as error:
-            raise Exception(f'An error occurred: {error}')
+            logger.error(f'Google Docs API error: {error}')
+            raise Exception(f'Failed to retrieve document: {error}')
+        except Exception as error:
+            logger.error(f'Unexpected error retrieving document: {error}')
+            raise Exception(f'Failed to retrieve document: {error}')
     
     def _extract_text_from_document(self, document):
+        """Extract plain text from Google Docs document structure"""
         text = ''
         content = document.get('body', {}).get('content', [])
         
@@ -63,5 +72,18 @@ class GoogleDocsService:
                 for text_element in paragraph.get('elements', []):
                     if 'textRun' in text_element:
                         text += text_element['textRun']['content']
+            elif 'table' in element:
+                # Handle tables
+                table = element['table']
+                for row in table.get('tableRows', []):
+                    for cell in row.get('tableCells', []):
+                        for cell_element in cell.get('content', []):
+                            if 'paragraph' in cell_element:
+                                paragraph = cell_element['paragraph']
+                                for text_element in paragraph.get('elements', []):
+                                    if 'textRun' in text_element:
+                                        text += text_element['textRun']['content']
+                        text += '\t'  # Add tab between cells
+                    text += '\n'  # Add newline between rows
         
-        return text
+        return text.strip()
