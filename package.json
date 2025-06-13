@@ -11,7 +11,12 @@
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
-  "keywords": ["chatbot", "rag", "ai", "google-docs"],
+  "keywords": [
+    "chatbot",
+    "rag",
+    "ai",
+    "google-docs"
+  ],
   "author": "",
   "license": "MIT"
 }
