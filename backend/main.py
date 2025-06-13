@@ -66,17 +66,29 @@ try:
     # Initialize Google services (optional)
     if os.path.exists(Config.GOOGLE_CREDENTIALS_PATH):
         try:
+            logger.info("Initializing Google Docs service...")
             google_docs_service = GoogleDocsService(Config.GOOGLE_CREDENTIALS_PATH)
+            logger.info("Google Docs service initialized successfully")
+            
+            logger.info("Initializing Google Drive service...")
             google_drive_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
+            logger.info("Google Drive service initialized successfully")
+            
+            logger.info("Initializing Drive Sync service...")
             drive_sync_service = DriveSyncService(
                 google_drive_service, 
                 rag_service, 
                 Config.DRIVE_SYNC_INTERVAL_HOURS
             )
-            logger.info("Google services initialized successfully")
+            logger.info("Drive Sync service initialized successfully")
+            
+            logger.info("All Google services initialized successfully")
         except Exception as e:
             logger.error(f"Failed to initialize Google services: {e}")
             logger.info("Individual document management will still work if you restart and complete authentication")
+            # Reset services to None if initialization failed
+            google_drive_service = None
+            drive_sync_service = None
     else:
         logger.warning(f"Google credentials file not found at {Config.GOOGLE_CREDENTIALS_PATH}")
         
@@ -123,6 +135,40 @@ async def health_check():
             "document_processor": document_processor is not None
         }
     }
+
+@app.get("/debug/services")
+async def debug_services():
+    """Debug endpoint to check service initialization status"""
+    debug_info = {
+        "credentials_file_exists": os.path.exists(Config.GOOGLE_CREDENTIALS_PATH),
+        "credentials_path": Config.GOOGLE_CREDENTIALS_PATH,
+        "token_file_exists": os.path.exists("token.pickle"),
+        "services": {
+            "google_docs": {
+                "initialized": google_docs_service is not None,
+                "class": str(type(google_docs_service)) if google_docs_service else None
+            },
+            "google_drive": {
+                "initialized": google_drive_service is not None,
+                "class": str(type(google_drive_service)) if google_drive_service else None
+            },
+            "drive_sync": {
+                "initialized": drive_sync_service is not None,
+                "class": str(type(drive_sync_service)) if drive_sync_service else None
+            }
+        }
+    }
+    
+    # Try to get more detailed error info
+    if os.path.exists(Config.GOOGLE_CREDENTIALS_PATH) and not google_drive_service:
+        try:
+            # Try to initialize just to see what error we get
+            test_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
+            debug_info["test_initialization"] = "Success"
+        except Exception as e:
+            debug_info["test_initialization_error"] = str(e)
+    
+    return debug_info
 
 # Individual document management (existing functionality)
 @app.post("/documents/add")
