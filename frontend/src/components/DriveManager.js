@@ -170,6 +170,7 @@ const DriveManager = () => {
           </button>
         </div>
         {error && <div className="error">{error}</div>}
+        }
       </div>
 
       {syncStatus && (
