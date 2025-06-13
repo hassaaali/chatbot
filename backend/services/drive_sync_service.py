@@ -1,6 +1,6 @@
+import asyncio
 from typing import List, Dict, Optional, Set
 import logging
-import asyncio
 from datetime import datetime, timedelta
 import json
 import os
@@ -23,7 +23,7 @@ class DriveSyncService:
             if os.path.exists(self.sync_state_file):
                 with open(self.sync_state_file, 'r') as f:
                     state = json.load(f)
-                    self.last_sync_time = datetime.fromisoformat(state.get('last_sync_time', ''))
+                    self.last_sync_time = datetime.fromisoformat(state.get('last_sync_time', '')) if state.get('last_sync_time') else None
                     self.synced_documents = set(state.get('synced_documents', []))
                     logger.info(f"Loaded sync state: {len(self.synced_documents)} documents, last sync: {self.last_sync_time}")
         except Exception as e:
@@ -52,7 +52,12 @@ class DriveSyncService:
             logger.info(f"Starting Drive sync for folder: {folder_id or 'entire Drive'}")
             
             # Get all documents in the folder
-            drive_documents = self.drive_service.scan_folder(folder_id, include_subfolders=True)
+            try:
+                drive_documents = self.drive_service.scan_folder(folder_id, include_subfolders=True)
+                logger.info(f"Successfully scanned folder, found {len(drive_documents)} documents")
+            except Exception as e:
+                logger.error(f"Failed to scan folder: {e}")
+                raise Exception(f"Failed to scan Drive folder: {e}")
             
             stats = {
                 'total_found': len(drive_documents),
@@ -63,21 +68,38 @@ class DriveSyncService:
                 'error_details': []
             }
             
-            for doc_info in drive_documents:
+            if not drive_documents:
+                logger.warning("No documents found in the specified folder")
+                return stats
+            
+            for i, doc_info in enumerate(drive_documents):
                 try:
                     doc_id = doc_info['id']
+                    logger.info(f"Processing document {i+1}/{len(drive_documents)}: {doc_info.get('title', doc_id)}")
                     
                     # Check if document needs syncing
                     if not force_full_sync and doc_id in self.synced_documents:
                         # Check modification time if available
                         if doc_info.get('modified_time'):
-                            modified_time = datetime.fromisoformat(doc_info['modified_time'].replace('Z', '+00:00'))
-                            if self.last_sync_time and modified_time <= self.last_sync_time:
-                                stats['skipped'] += 1
-                                continue
+                            try:
+                                modified_time = datetime.fromisoformat(doc_info['modified_time'].replace('Z', '+00:00'))
+                                if self.last_sync_time and modified_time <= self.last_sync_time:
+                                    stats['skipped'] += 1
+                                    logger.info(f"Skipping unchanged document: {doc_info.get('title', doc_id)}")
+                                    continue
+                            except Exception as e:
+                                logger.warning(f"Could not parse modification time for {doc_id}: {e}")
                     
                     # Get document content
-                    document = self.drive_service.get_document_content(doc_id)
+                    try:
+                        document = self.drive_service.get_document_content(doc_id)
+                        logger.info(f"Retrieved content for: {document['title']} ({len(document['content'])} chars)")
+                    except Exception as e:
+                        stats['errors'] += 1
+                        error_msg = f"Error retrieving document {doc_info.get('title', doc_id)}: {str(e)}"
+                        stats['error_details'].append(error_msg)
+                        logger.error(error_msg)
+                        continue
                     
                     # Check if document already exists in RAG system
                     is_update = doc_id in self.synced_documents
@@ -87,18 +109,27 @@ class DriveSyncService:
                         # Remove old version first
                         try:
                             self.rag_service.delete_document(doc_id)
-                        except:
-                            pass  # Document might not exist in vector store
+                            logger.info(f"Removed old version of: {document['title']}")
+                        except Exception as e:
+                            logger.warning(f"Could not remove old version of {doc_id}: {e}")
                     
-                    self.rag_service.add_document(document)
-                    self.synced_documents.add(doc_id)
-                    
-                    if is_update:
-                        stats['updated'] += 1
-                        logger.info(f"Updated document: {document['title']}")
-                    else:
-                        stats['added'] += 1
-                        logger.info(f"Added document: {document['title']}")
+                    # Add document to RAG system
+                    try:
+                        self.rag_service.add_document(document)
+                        self.synced_documents.add(doc_id)
+                        
+                        if is_update:
+                            stats['updated'] += 1
+                            logger.info(f"Updated document: {document['title']}")
+                        else:
+                            stats['added'] += 1
+                            logger.info(f"Added document: {document['title']}")
+                    except Exception as e:
+                        stats['errors'] += 1
+                        error_msg = f"Error adding document {document['title']} to RAG system: {str(e)}"
+                        stats['error_details'].append(error_msg)
+                        logger.error(error_msg)
+                        continue
                     
                     # Small delay to avoid rate limiting
                     await asyncio.sleep(0.1)

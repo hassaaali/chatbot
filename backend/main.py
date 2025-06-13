@@ -18,7 +18,10 @@ from services.vector_store import VectorStore
 from services.rag_service import RAGService
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Validate configuration
@@ -62,10 +65,18 @@ try:
     
     # Initialize Google services (optional)
     if os.path.exists(Config.GOOGLE_CREDENTIALS_PATH):
-        google_docs_service = GoogleDocsService(Config.GOOGLE_CREDENTIALS_PATH)
-        google_drive_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
-        drive_sync_service = DriveSyncService(google_drive_service, rag_service)
-        logger.info("Google services initialized")
+        try:
+            google_docs_service = GoogleDocsService(Config.GOOGLE_CREDENTIALS_PATH)
+            google_drive_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
+            drive_sync_service = DriveSyncService(
+                google_drive_service, 
+                rag_service, 
+                Config.DRIVE_SYNC_INTERVAL_HOURS
+            )
+            logger.info("Google services initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Google services: {e}")
+            logger.info("Individual document management will still work if you restart and complete authentication")
     else:
         logger.warning(f"Google credentials file not found at {Config.GOOGLE_CREDENTIALS_PATH}")
         
@@ -157,11 +168,13 @@ async def sync_drive_folder(request: FolderSyncRequest, background_tasks: Backgr
     if not drive_sync_service:
         raise HTTPException(
             status_code=503,
-            detail="Google Drive service not available. Please ensure credentials.json is configured."
+            detail="Google Drive service not available. Please ensure credentials.json is configured and restart the application."
         )
     
     try:
-        # Run sync in background for large folders
+        logger.info(f"Starting sync request: folder_id={request.folder_id}, force_full_sync={request.force_full_sync}")
+        
+        # Run sync in background for large folders or full syncs
         if request.force_full_sync:
             background_tasks.add_task(
                 drive_sync_service.sync_folder,
@@ -177,7 +190,7 @@ async def sync_drive_folder(request: FolderSyncRequest, background_tasks: Backgr
             stats = await drive_sync_service.sync_folder(request.folder_id, request.force_full_sync)
             return SyncResponse(
                 success=True,
-                message=f"Sync completed: {stats['added']} added, {stats['updated']} updated, {stats['errors']} errors",
+                message=f"Sync completed: {stats['added']} added, {stats['updated']} updated, {stats['skipped']} skipped, {stats['errors']} errors",
                 stats=stats
             )
     except Exception as e:
@@ -199,7 +212,10 @@ async def scan_drive_folder(folder_id: Optional[str] = None):
         raise HTTPException(status_code=503, detail="Google Drive service not available")
     
     try:
+        logger.info(f"Scanning folder: {folder_id or 'entire Drive'}")
         documents = google_drive_service.scan_folder(folder_id, include_subfolders=True)
+        logger.info(f"Scan completed, found {len(documents)} documents")
+        
         return {
             "folder_id": folder_id,
             "total_documents": len(documents),
