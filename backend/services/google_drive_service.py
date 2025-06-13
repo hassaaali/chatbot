@@ -11,6 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class GoogleDriveService:
+    # Updated scopes - make sure both are included
     SCOPES = [
         'https://www.googleapis.com/auth/documents.readonly',
         'https://www.googleapis.com/auth/drive.readonly'
@@ -35,19 +36,89 @@ class GoogleDriveService:
         # If no valid credentials, get new ones
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
+                try:
+                    creds.refresh(Request())
+                    logger.info("Refreshed existing credentials")
+                except Exception as e:
+                    logger.warning(f"Failed to refresh credentials: {e}")
+                    # Delete the old token and re-authenticate
+                    if os.path.exists(token_path):
+                        os.remove(token_path)
+                    creds = None
+            
+            if not creds:
+                logger.info("Starting new OAuth flow...")
                 flow = InstalledAppFlow.from_client_secrets_file(
                     self.credentials_path, self.SCOPES)
-                creds = flow.run_local_server(port=0)
+                # Use run_local_server with specific parameters for better compatibility
+                creds = flow.run_local_server(
+                    port=0,
+                    prompt='consent',
+                    authorization_prompt_message='Please visit this URL to authorize the application: {url}',
+                    success_message='The auth flow is complete; you may close this window.',
+                    open_browser=True
+                )
+                logger.info("OAuth flow completed successfully")
             
             # Save credentials for next run
             with open(token_path, 'wb') as token:
                 pickle.dump(creds, token)
+                logger.info("Saved new credentials")
         
-        self.drive_service = build('drive', 'v3', credentials=creds)
-        self.docs_service = build('docs', 'v1', credentials=creds)
-        logger.info("Google Drive and Docs services authenticated successfully")
+        # Verify scopes
+        if hasattr(creds, 'scopes'):
+            logger.info(f"Current scopes: {creds.scopes}")
+            required_scopes = set(self.SCOPES)
+            current_scopes = set(creds.scopes) if creds.scopes else set()
+            
+            if not required_scopes.issubset(current_scopes):
+                logger.warning("Insufficient scopes detected. Re-authenticating...")
+                # Delete token and re-authenticate with correct scopes
+                if os.path.exists(token_path):
+                    os.remove(token_path)
+                return self._authenticate()
+        
+        try:
+            self.drive_service = build('drive', 'v3', credentials=creds)
+            self.docs_service = build('docs', 'v1', credentials=creds)
+            logger.info("Google Drive and Docs services authenticated successfully")
+            
+            # Test the connection
+            self._test_connection()
+            
+        except Exception as e:
+            logger.error(f"Failed to build services: {e}")
+            # If building services fails, delete token and retry
+            if os.path.exists(token_path):
+                os.remove(token_path)
+                logger.info("Deleted invalid token, please restart the application")
+            raise Exception("Authentication failed. Please restart the application to re-authenticate.")
+    
+    def _test_connection(self):
+        """Test the API connection with a simple request"""
+        try:
+            # Test Drive API with a minimal request
+            result = self.drive_service.files().list(
+                pageSize=1,
+                fields="files(id, name)"
+            ).execute()
+            logger.info("Drive API connection test successful")
+            
+            # Test if we can access documents specifically
+            doc_result = self.drive_service.files().list(
+                q="mimeType='application/vnd.google-apps.document'",
+                pageSize=1,
+                fields="files(id, name)"
+            ).execute()
+            logger.info("Document access test successful")
+            
+        except HttpError as e:
+            if e.resp.status == 403:
+                logger.error("Insufficient permissions. Please re-authenticate with proper scopes.")
+                raise Exception("Insufficient permissions. Please delete token.pickle and restart the application.")
+            else:
+                logger.error(f"API test failed: {e}")
+                raise
     
     def scan_folder(self, folder_id: Optional[str] = None, include_subfolders: bool = True) -> List[Dict]:
         """
@@ -62,6 +133,8 @@ class GoogleDriveService:
             if folder_id:
                 query += f" and '{folder_id}' in parents"
             
+            logger.info(f"Scanning with query: {query}")
+            
             # Get all Google Docs in the folder
             results = self.drive_service.files().list(
                 q=query,
@@ -70,6 +143,7 @@ class GoogleDriveService:
             ).execute()
             
             items = results.get('files', [])
+            logger.info(f"Found {len(items)} documents")
             
             for item in items:
                 doc_info = {
@@ -88,11 +162,13 @@ class GoogleDriveService:
                     subdocs = self.scan_folder(subfolder['id'], include_subfolders=True)
                     documents.extend(subdocs)
             
-            logger.info(f"Found {len(documents)} documents in Drive folder")
+            logger.info(f"Total documents found: {len(documents)}")
             return documents
             
         except HttpError as error:
             logger.error(f'Google Drive API error: {error}')
+            if error.resp.status == 403:
+                raise Exception('Insufficient permissions. Please delete token.pickle and restart the application to re-authenticate with proper scopes.')
             raise Exception(f'Failed to scan Drive folder: {error}')
         except Exception as error:
             logger.error(f'Unexpected error scanning folder: {error}')

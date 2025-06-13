@@ -10,7 +10,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 class GoogleDocsService:
-    SCOPES = ['https://www.googleapis.com/auth/documents.readonly']
+    # Updated scopes to match GoogleDriveService
+    SCOPES = [
+        'https://www.googleapis.com/auth/documents.readonly',
+        'https://www.googleapis.com/auth/drive.readonly'
+    ]
     
     def __init__(self, credentials_path):
         self.credentials_path = credentials_path
@@ -28,11 +32,25 @@ class GoogleDocsService:
         # If no valid credentials, get new ones
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
+                try:
+                    creds.refresh(Request())
+                except Exception as e:
+                    logger.warning(f"Failed to refresh credentials: {e}")
+                    # Delete the old token and re-authenticate
+                    if os.path.exists(token_path):
+                        os.remove(token_path)
+                    creds = None
+            
+            if not creds:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     self.credentials_path, self.SCOPES)
-                creds = flow.run_local_server(port=0)
+                creds = flow.run_local_server(
+                    port=0,
+                    prompt='consent',
+                    authorization_prompt_message='Please visit this URL to authorize the application: {url}',
+                    success_message='The auth flow is complete; you may close this window.',
+                    open_browser=True
+                )
             
             # Save credentials for next run
             with open(token_path, 'wb') as token:
@@ -56,6 +74,8 @@ class GoogleDocsService:
             }
         except HttpError as error:
             logger.error(f'Google Docs API error: {error}')
+            if error.resp.status == 403:
+                raise Exception('Insufficient permissions. Please delete token.pickle and restart the application to re-authenticate.')
             raise Exception(f'Failed to retrieve document: {error}')
         except Exception as error:
             logger.error(f'Unexpected error retrieving document: {error}')
