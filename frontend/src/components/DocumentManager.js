@@ -26,7 +26,7 @@ const DocumentManager = () => {
 
   const addDocument = async () => {
     if (!documentId.trim()) {
-      setError('Please enter a Google Doc ID');
+      setError('Please enter a PDF file ID from Google Drive');
       return;
     }
 
@@ -53,7 +53,7 @@ const DocumentManager = () => {
         setTitle('');
         fetchStats();
         setError('');
-        alert(`Document "${data.document_info.title}" added successfully!`);
+        alert(`PDF document "${data.document_info.title}" added successfully!`);
       } else {
         setError(data.detail || 'Failed to add document');
       }
@@ -110,8 +110,12 @@ const DocumentManager = () => {
   };
 
   const extractDocIdFromUrl = (url) => {
-    const match = url.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
-    return match ? match[1] : url;
+    // Handle Google Drive file URLs
+    const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
+    if (fileMatch) return fileMatch[1];
+    
+    // Handle direct file IDs
+    return url;
   };
 
   const handleDocumentIdChange = (e) => {
@@ -120,16 +124,24 @@ const DocumentManager = () => {
     setDocumentId(extractedId);
   };
 
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="document-manager">
-      <h3>Document Manager</h3>
+      <h3>Individual PDF Manager</h3>
       
       <div className="add-document">
         <input
           type="text"
           value={documentId}
           onChange={handleDocumentIdChange}
-          placeholder="Google Doc ID or URL"
+          placeholder="Google Drive PDF File ID or URL"
           disabled={isLoading}
         />
         <input
@@ -140,16 +152,16 @@ const DocumentManager = () => {
           disabled={isLoading}
         />
         <button onClick={addDocument} disabled={isLoading || !documentId.trim()}>
-          {isLoading ? 'Adding...' : 'Add Document'}
+          {isLoading ? 'Adding...' : 'Add PDF Document'}
         </button>
         {error && <div className="error">{error}</div>}
-        }
       </div>
 
       {stats && (
         <div className="stats">
           <h4>Knowledge Base Stats</h4>
           <p>Total Documents: {stats.vector_store_stats?.total_documents || 0}</p>
+          <p>Total Chunks: {stats.vector_store_stats?.total_chunks || 0}</p>
           <p>Embedding Model: {stats.vector_store_stats?.embedding_model || 'N/A'}</p>
           {stats.vector_store_stats?.sources && (
             <div>
@@ -167,7 +179,7 @@ const DocumentManager = () => {
       <div className="document-list">
         <h4>Added Documents</h4>
         {documents.length === 0 ? (
-          <p>No documents added yet.</p>
+          <p>No PDF documents added yet.</p>
         ) : (
           <ul>
             {documents.map((doc) => (
@@ -175,7 +187,10 @@ const DocumentManager = () => {
                 <div className="doc-info">
                   <span className="doc-title">{doc.title}</span>
                   <span className="doc-id">ID: {doc.document_id}</span>
-                  <span className="doc-length">Length: {doc.content_length} chars</span>
+                  <span className="doc-length">Content: {doc.content_length} chars</span>
+                  {doc.file_size && (
+                    <span className="doc-size">Size: {formatFileSize(doc.file_size)}</span>
+                  )}
                 </div>
                 <button onClick={() => removeDocument(doc.document_id)}>Remove</button>
               </li>
@@ -191,14 +206,23 @@ const DocumentManager = () => {
       )}
 
       <div className="instructions">
-        <h4>How to add a Google Doc:</h4>
+        <h4>How to add a PDF from Google Drive:</h4>
         <ol>
-          <li>Open your Google Doc</li>
+          <li>Upload your PDF policy document to Google Drive</li>
+          <li>Right-click the PDF file and select "Get link"</li>
           <li>Make sure it's shared (at least view access)</li>
-          <li>Copy the document ID from the URL or paste the full URL</li>
+          <li>Copy the file ID from the URL or paste the full URL</li>
           <li>Optionally add a custom title</li>
-          <li>Click "Add Document"</li>
+          <li>Click "Add PDF Document"</li>
         </ol>
+        
+        <h5>File ID Format:</h5>
+        <p>From a Google Drive URL like:</p>
+        <code>https://drive.google.com/file/d/[FILE_ID]/view</code>
+        <p>Copy just the FILE_ID part, or paste the entire URL.</p>
+        
+        <h5>Supported Files:</h5>
+        <p>Only PDF documents are supported. The system will extract text content for RAG processing.</p>
       </div>
 
       <style jsx>{`
@@ -304,11 +328,17 @@ const DocumentManager = () => {
         .doc-title {
           font-weight: bold;
           margin-bottom: 2px;
+          color: #d32f2f;
         }
 
-        .doc-id, .doc-length {
+        .doc-id, .doc-length, .doc-size {
           font-size: 0.8em;
           color: #666;
+        }
+
+        .doc-size {
+          color: #1976d2;
+          font-weight: 500;
         }
 
         .document-list button {
@@ -346,19 +376,30 @@ const DocumentManager = () => {
           border-top: 1px solid #ddd;
         }
 
-        .instructions h4 {
+        .instructions h4, .instructions h5 {
           margin-bottom: 10px;
           color: #333;
         }
 
-        .instructions ol {
+        .instructions ol, .instructions p {
           font-size: 0.9em;
           color: #666;
+        }
+
+        .instructions ol {
           padding-left: 20px;
         }
 
         .instructions li {
           margin-bottom: 5px;
+        }
+
+        .instructions code {
+          background-color: #f8f9fa;
+          padding: 2px 4px;
+          border-radius: 3px;
+          font-family: monospace;
+          font-size: 0.8em;
         }
       `}</style>
     </div>

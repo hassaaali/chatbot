@@ -11,7 +11,8 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>RAG-Enhanced Chatbot</h1>
+        <h1>RAG-Enhanced Policy Chatbot</h1>
+        <p>Upload PDF policy documents and get intelligent answers</p>
       </header>
       <main className="App-main">
         <div className="container">
@@ -21,13 +22,13 @@ function App() {
                 className={activeTab === 'drive' ? 'active' : ''}
                 onClick={() => setActiveTab('drive')}
               >
-                Drive Sync
+                PDF Folder Sync
               </button>
               <button 
                 className={activeTab === 'individual' ? 'active' : ''}
                 onClick={() => setActiveTab('individual')}
               >
-                Individual Docs
+                Individual PDFs
               </button>
             </div>
             
@@ -40,8 +41,11 @@ function App() {
                   checked={useRAG}
                   onChange={(e) => setUseRAG(e.target.checked)}
                 />
-                Use RAG (Document Context)
+                Use RAG (Policy Document Context)
               </label>
+              <p className="rag-description">
+                When enabled, the chatbot will use your uploaded policy documents to provide more accurate and contextual answers.
+              </p>
             </div>
           </div>
           <div className="chat-container">

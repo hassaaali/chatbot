@@ -6,14 +6,21 @@
 }
 
 .App-header {
-  background-color: #282c34;
-  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 30px 20px;
   color: white;
 }
 
 .App-header h1 {
+  margin: 0 0 10px 0;
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.App-header p {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.1rem;
+  opacity: 0.9;
 }
 
 .App-main {
@@ -21,44 +28,50 @@
   display: flex;
   justify-content: center;
   padding: 20px;
+  background-color: #f8f9fa;
 }
 
 .container {
   display: flex;
-  max-width: 1200px;
+  max-width: 1400px;
   width: 100%;
   gap: 20px;
 }
 
 .sidebar {
-  width: 350px;
-  background-color: #f5f5f5;
+  width: 380px;
+  background-color: #ffffff;
   padding: 20px;
-  border-radius: 8px;
+  border-radius: 12px;
   height: fit-content;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
 }
 
 .tab-selector {
   display: flex;
   margin-bottom: 20px;
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #ddd;
+  border: 1px solid #dee2e6;
+  background-color: #f8f9fa;
 }
 
 .tab-selector button {
   flex: 1;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border: none;
-  background-color: white;
+  background-color: transparent;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  color: #6c757d;
 }
 
 .tab-selector button:hover {
-  background-color: #f8f9fa;
+  background-color: #e9ecef;
+  color: #495057;
 }
 
 .tab-selector button.active {
@@ -67,33 +80,43 @@
 }
 
 .tab-selector button:not(:last-child) {
-  border-right: 1px solid #ddd;
+  border-right: 1px solid #dee2e6;
 }
 
 .chat-container {
   flex: 1;
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e9ecef;
 }
 
 .rag-toggle {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid #ddd;
+  border-top: 1px solid #e9ecef;
 }
 
 .rag-toggle label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
+  color: #495057;
 }
 
 .rag-toggle input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  accent-color: #007bff;
+}
+
+.rag-description {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: #6c757d;
+  line-height: 1.4;
 }
 
 @media (max-width: 768px) {
@@ -103,5 +126,31 @@
   
   .sidebar {
     width: 100%;
+  }
+  
+  .App-header h1 {
+    font-size: 2rem;
+  }
+  
+  .App-header p {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .App-main {
+    padding: 10px;
+  }
+  
+  .sidebar {
+    padding: 15px;
+  }
+  
+  .App-header {
+    padding: 20px 15px;
+  }
+  
+  .App-header h1 {
+    font-size: 1.8rem;
   }
 }

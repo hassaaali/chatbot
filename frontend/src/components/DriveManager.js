@@ -25,7 +25,7 @@ const DriveManager = () => {
   };
 
   const scanFolder = async () => {
-    if (!folderId.trim() && !window.confirm('Scan entire Google Drive? This may take a while.')) {
+    if (!folderId.trim() && !window.confirm('Scan entire Google Drive for PDF files? This may take a while.')) {
       return;
     }
 
@@ -126,9 +126,17 @@ const DriveManager = () => {
     setFolderId(extractedId);
   };
 
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
   return (
     <div className="drive-manager">
-      <h3>Google Drive Manager</h3>
+      <h3>PDF Policy Documents Manager</h3>
       
       <div className="folder-input">
         <input
@@ -144,7 +152,7 @@ const DriveManager = () => {
             disabled={isScanning || isSyncing}
             className="scan-button"
           >
-            {isScanning ? 'Scanning...' : 'Scan Folder'}
+            {isScanning ? 'Scanning...' : 'Scan for PDFs'}
           </button>
           <button 
             onClick={() => syncFolder(false)} 
@@ -162,13 +170,12 @@ const DriveManager = () => {
           </button>
         </div>
         {error && <div className="error">{error}</div>}
-        }
       </div>
 
       {syncStatus && (
         <div className="sync-status">
           <h4>Sync Status</h4>
-          <p>Documents Synced: {syncStatus.synced_documents_count}</p>
+          <p>PDF Documents Synced: {syncStatus.synced_documents_count}</p>
           <p>Last Sync: {syncStatus.last_sync_time ? new Date(syncStatus.last_sync_time).toLocaleString() : 'Never'}</p>
           <p>Auto-sync Interval: {syncStatus.sync_interval_hours} hours</p>
           {syncStatus.should_sync && (
@@ -185,17 +192,19 @@ const DriveManager = () => {
       {scanResults && (
         <div className="scan-results">
           <h4>Scan Results</h4>
-          <p>Found {scanResults.total_documents} documents in {folderId || 'entire Drive'}</p>
+          <p>Found {scanResults.total_documents} PDF documents in {folderId || 'entire Drive'}</p>
+          <p>Total Size: {scanResults.total_size_mb} MB</p>
           
           {scanResults.documents.length > 0 && (
             <div className="document-preview">
-              <h5>Documents (showing first {scanResults.showing_first}):</h5>
+              <h5>PDF Documents (showing first {scanResults.showing_first}):</h5>
               <ul>
                 {scanResults.documents.map((doc) => (
                   <li key={doc.id}>
                     <div className="doc-info">
                       <span className="doc-title">{doc.title}</span>
                       <span className="doc-id">ID: {doc.id}</span>
+                      <span className="doc-size">Size: {formatFileSize(doc.size)}</span>
                       {doc.modified_time && (
                         <span className="doc-modified">
                           Modified: {new Date(doc.modified_time).toLocaleDateString()}
@@ -203,7 +212,7 @@ const DriveManager = () => {
                       )}
                     </div>
                     <a href={doc.url} target="_blank" rel="noopener noreferrer" className="doc-link">
-                      Open
+                      View
                     </a>
                   </li>
                 ))}
@@ -212,7 +221,7 @@ const DriveManager = () => {
           )}
           
           <div className="sync-actions">
-            <p>Ready to sync these documents to your knowledge base?</p>
+            <p>Ready to sync these PDF documents to your knowledge base?</p>
             <button 
               onClick={() => syncFolder(false)} 
               disabled={isSyncing}
@@ -232,18 +241,21 @@ const DriveManager = () => {
       )}
 
       <div className="instructions">
-        <h4>How to use Drive Manager:</h4>
+        <h4>How to use PDF Policy Manager:</h4>
         <ol>
-          <li><strong>Scan:</strong> Preview documents in a folder without adding them</li>
-          <li><strong>Quick Sync:</strong> Add only new or updated documents</li>
-          <li><strong>Full Sync:</strong> Re-process all documents (slower but thorough)</li>
+          <li><strong>Scan:</strong> Preview PDF documents in a folder without adding them</li>
+          <li><strong>Quick Sync:</strong> Add only new or updated PDF documents</li>
+          <li><strong>Full Sync:</strong> Re-process all PDF documents (slower but thorough)</li>
           <li><strong>Auto-sync:</strong> Automatically sync if enough time has passed</li>
         </ol>
         
         <h5>Folder ID:</h5>
         <p>Get the folder ID from a Google Drive URL:</p>
         <code>https://drive.google.com/drive/folders/[FOLDER_ID]</code>
-        <p>Leave empty to scan your entire Google Drive.</p>
+        <p>Leave empty to scan your entire Google Drive for PDF files.</p>
+        
+        <h5>Supported Files:</h5>
+        <p>Only PDF documents will be processed. Other file types will be ignored.</p>
       </div>
 
       <style jsx>{`
@@ -401,11 +413,17 @@ const DriveManager = () => {
         .doc-title {
           font-weight: bold;
           margin-bottom: 2px;
+          color: #d32f2f;
         }
 
-        .doc-id, .doc-modified {
+        .doc-id, .doc-modified, .doc-size {
           font-size: 0.8em;
           color: #666;
+        }
+
+        .doc-size {
+          color: #1976d2;
+          font-weight: 500;
         }
 
         .doc-link {

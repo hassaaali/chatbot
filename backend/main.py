@@ -10,7 +10,6 @@ import os
 import asyncio
 
 from config import Config
-from services.google_docs_service import GoogleDocsService
 from services.google_drive_service import GoogleDriveService
 from services.drive_sync_service import DriveSyncService
 from services.document_processor import DocumentProcessor
@@ -31,7 +30,7 @@ try:
 except Exception as e:
     logger.warning(f"Configuration validation failed: {e}")
 
-app = FastAPI(title="RAG-Enhanced Chatbot API", version="1.0.0")
+app = FastAPI(title="RAG-Enhanced PDF Chatbot API", version="1.0.0")
 
 # Configure CORS
 app.add_middleware(
@@ -43,7 +42,6 @@ app.add_middleware(
 )
 
 # Initialize services
-google_docs_service = None
 google_drive_service = None
 drive_sync_service = None
 document_processor = None
@@ -66,10 +64,6 @@ try:
     # Initialize Google services (optional)
     if os.path.exists(Config.GOOGLE_CREDENTIALS_PATH):
         try:
-            logger.info("Initializing Google Docs service...")
-            google_docs_service = GoogleDocsService(Config.GOOGLE_CREDENTIALS_PATH)
-            logger.info("Google Docs service initialized successfully")
-            
             logger.info("Initializing Google Drive service...")
             google_drive_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
             logger.info("Google Drive service initialized successfully")
@@ -120,14 +114,13 @@ class SyncResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "RAG-Enhanced Chatbot API", "version": "1.0.0"}
+    return {"message": "RAG-Enhanced PDF Chatbot API", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
         "services": {
-            "google_docs": google_docs_service is not None,
             "google_drive": google_drive_service is not None,
             "drive_sync": drive_sync_service is not None,
             "rag": rag_service is not None,
@@ -144,10 +137,6 @@ async def debug_services():
         "credentials_path": Config.GOOGLE_CREDENTIALS_PATH,
         "token_file_exists": os.path.exists("token.pickle"),
         "services": {
-            "google_docs": {
-                "initialized": google_docs_service is not None,
-                "class": str(type(google_docs_service)) if google_docs_service else None
-            },
             "google_drive": {
                 "initialized": google_drive_service is not None,
                 "class": str(type(google_drive_service)) if google_drive_service else None
@@ -170,22 +159,22 @@ async def debug_services():
     
     return debug_info
 
-# Individual document management (existing functionality)
+# Individual document management
 @app.post("/documents/add")
 async def add_document(request: DocumentRequest) -> DocumentResponse:
-    """Add a single Google Doc to the RAG system"""
-    if not google_docs_service:
+    """Add a single PDF document from Google Drive to the RAG system"""
+    if not google_drive_service:
         raise HTTPException(
             status_code=503, 
-            detail="Google Docs service not available. Please ensure credentials.json is configured."
+            detail="Google Drive service not available. Please ensure credentials.json is configured and restart the application."
         )
     
     if not rag_service:
         raise HTTPException(status_code=503, detail="RAG service not available")
     
     try:
-        # Retrieve document from Google Docs
-        document = google_docs_service.get_document_content(request.document_id)
+        # Retrieve document from Google Drive
+        document = google_drive_service.get_document_content(request.document_id)
         
         # Override title if provided
         if request.title:
@@ -196,21 +185,22 @@ async def add_document(request: DocumentRequest) -> DocumentResponse:
         
         return DocumentResponse(
             success=True,
-            message=f"Successfully added document '{document['title']}'",
+            message=f"Successfully added PDF document '{document['title']}'",
             document_info={
                 "title": document['title'],
                 "document_id": document['id'],
-                "content_length": len(document['content'])
+                "content_length": len(document['content']),
+                "file_size": document.get('size', 0)
             }
         )
     except Exception as e:
         logger.error(f"Error adding document: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to add document: {str(e)}")
 
-# New Drive folder management endpoints
+# Drive folder management endpoints
 @app.post("/drive/sync")
 async def sync_drive_folder(request: FolderSyncRequest, background_tasks: BackgroundTasks) -> SyncResponse:
-    """Sync documents from a Google Drive folder"""
+    """Sync PDF documents from a Google Drive folder"""
     if not drive_sync_service:
         raise HTTPException(
             status_code=503,
@@ -253,7 +243,7 @@ async def get_sync_status():
 
 @app.post("/drive/scan")
 async def scan_drive_folder(folder_id: Optional[str] = None):
-    """Scan a Drive folder without syncing (preview what would be synced)"""
+    """Scan a Drive folder for PDF documents without syncing (preview what would be synced)"""
     if not google_drive_service:
         raise HTTPException(status_code=503, detail="Google Drive service not available")
     
@@ -270,11 +260,14 @@ async def scan_drive_folder(folder_id: Optional[str] = None):
                     "id": doc["id"],
                     "title": doc["title"],
                     "url": doc["url"],
-                    "modified_time": doc.get("modified_time")
+                    "modified_time": doc.get("modified_time"),
+                    "size": doc.get("size", 0),
+                    "size_mb": round(doc.get("size", 0) / (1024 * 1024), 2)
                 }
                 for doc in documents[:50]  # Limit to first 50 for preview
             ],
-            "showing_first": min(50, len(documents))
+            "showing_first": min(50, len(documents)),
+            "total_size_mb": round(sum(doc.get("size", 0) for doc in documents) / (1024 * 1024), 2)
         }
     except Exception as e:
         logger.error(f"Error scanning Drive folder: {e}")
