@@ -12,6 +12,10 @@ class Config:
     CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
     MAX_RETRIEVAL_RESULTS = int(os.getenv("MAX_RETRIEVAL_RESULTS", "5"))
     
+    # Drive sync settings
+    DRIVE_SYNC_INTERVAL_HOURS = int(os.getenv("DRIVE_SYNC_INTERVAL_HOURS", "24"))
+    DEFAULT_DRIVE_FOLDER_ID = os.getenv("DEFAULT_DRIVE_FOLDER_ID")  # Optional: set a default folder
+    
     @classmethod
     def validate(cls):
         if not cls.TOGETHER_API_KEY:

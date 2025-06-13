@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import httpx
@@ -7,9 +7,12 @@ import logging
 from pydantic import BaseModel
 from typing import Optional, List
 import os
+import asyncio
 
 from config import Config
 from services.google_docs_service import GoogleDocsService
+from services.google_drive_service import GoogleDriveService
+from services.drive_sync_service import DriveSyncService
 from services.document_processor import DocumentProcessor
 from services.vector_store import VectorStore
 from services.rag_service import RAGService
@@ -38,6 +41,8 @@ app.add_middleware(
 
 # Initialize services
 google_docs_service = None
+google_drive_service = None
+drive_sync_service = None
 document_processor = None
 vector_store = None
 rag_service = None
@@ -55,10 +60,12 @@ try:
     rag_service = RAGService(vector_store, document_processor)
     logger.info("RAG service initialized")
     
-    # Initialize Google Docs service (optional)
+    # Initialize Google services (optional)
     if os.path.exists(Config.GOOGLE_CREDENTIALS_PATH):
         google_docs_service = GoogleDocsService(Config.GOOGLE_CREDENTIALS_PATH)
-        logger.info("Google Docs service initialized")
+        google_drive_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
+        drive_sync_service = DriveSyncService(google_drive_service, rag_service)
+        logger.info("Google services initialized")
     else:
         logger.warning(f"Google credentials file not found at {Config.GOOGLE_CREDENTIALS_PATH}")
         
@@ -74,10 +81,19 @@ class DocumentRequest(BaseModel):
     document_id: str
     title: Optional[str] = None
 
+class FolderSyncRequest(BaseModel):
+    folder_id: Optional[str] = None
+    force_full_sync: bool = False
+
 class DocumentResponse(BaseModel):
     success: bool
     message: str
     document_info: Optional[dict] = None
+
+class SyncResponse(BaseModel):
+    success: bool
+    message: str
+    stats: Optional[dict] = None
 
 @app.get("/")
 async def root():
@@ -89,15 +105,18 @@ async def health_check():
         "status": "healthy",
         "services": {
             "google_docs": google_docs_service is not None,
+            "google_drive": google_drive_service is not None,
+            "drive_sync": drive_sync_service is not None,
             "rag": rag_service is not None,
             "vector_store": vector_store is not None,
             "document_processor": document_processor is not None
         }
     }
 
+# Individual document management (existing functionality)
 @app.post("/documents/add")
 async def add_document(request: DocumentRequest) -> DocumentResponse:
-    """Add a Google Doc to the RAG system"""
+    """Add a single Google Doc to the RAG system"""
     if not google_docs_service:
         raise HTTPException(
             status_code=503, 
@@ -131,6 +150,98 @@ async def add_document(request: DocumentRequest) -> DocumentResponse:
         logger.error(f"Error adding document: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to add document: {str(e)}")
 
+# New Drive folder management endpoints
+@app.post("/drive/sync")
+async def sync_drive_folder(request: FolderSyncRequest, background_tasks: BackgroundTasks) -> SyncResponse:
+    """Sync documents from a Google Drive folder"""
+    if not drive_sync_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Google Drive service not available. Please ensure credentials.json is configured."
+        )
+    
+    try:
+        # Run sync in background for large folders
+        if request.force_full_sync:
+            background_tasks.add_task(
+                drive_sync_service.sync_folder,
+                request.folder_id,
+                request.force_full_sync
+            )
+            return SyncResponse(
+                success=True,
+                message="Full sync started in background. Check /drive/sync/status for progress."
+            )
+        else:
+            # Quick sync in foreground
+            stats = await drive_sync_service.sync_folder(request.folder_id, request.force_full_sync)
+            return SyncResponse(
+                success=True,
+                message=f"Sync completed: {stats['added']} added, {stats['updated']} updated, {stats['errors']} errors",
+                stats=stats
+            )
+    except Exception as e:
+        logger.error(f"Error syncing Drive folder: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to sync folder: {str(e)}")
+
+@app.get("/drive/sync/status")
+async def get_sync_status():
+    """Get current sync status"""
+    if not drive_sync_service:
+        raise HTTPException(status_code=503, detail="Drive sync service not available")
+    
+    return drive_sync_service.get_sync_status()
+
+@app.post("/drive/scan")
+async def scan_drive_folder(folder_id: Optional[str] = None):
+    """Scan a Drive folder without syncing (preview what would be synced)"""
+    if not google_drive_service:
+        raise HTTPException(status_code=503, detail="Google Drive service not available")
+    
+    try:
+        documents = google_drive_service.scan_folder(folder_id, include_subfolders=True)
+        return {
+            "folder_id": folder_id,
+            "total_documents": len(documents),
+            "documents": [
+                {
+                    "id": doc["id"],
+                    "title": doc["title"],
+                    "url": doc["url"],
+                    "modified_time": doc.get("modified_time")
+                }
+                for doc in documents[:50]  # Limit to first 50 for preview
+            ],
+            "showing_first": min(50, len(documents))
+        }
+    except Exception as e:
+        logger.error(f"Error scanning Drive folder: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to scan folder: {str(e)}")
+
+@app.post("/drive/auto-sync")
+async def trigger_auto_sync(folder_id: Optional[str] = None):
+    """Trigger auto-sync if needed"""
+    if not drive_sync_service:
+        raise HTTPException(status_code=503, detail="Drive sync service not available")
+    
+    try:
+        stats = await drive_sync_service.auto_sync_if_needed(folder_id)
+        if stats:
+            return SyncResponse(
+                success=True,
+                message="Auto-sync completed",
+                stats=stats
+            )
+        else:
+            return SyncResponse(
+                success=True,
+                message="No sync needed at this time"
+            )
+    except Exception as e:
+        logger.error(f"Error in auto-sync: {e}")
+        raise HTTPException(status_code=500, detail=f"Auto-sync failed: {str(e)}")
+
+# Existing endpoints (unchanged)
 @app.delete("/documents/{document_id}")
 async def delete_document(document_id: str):
     """Remove a document from the RAG system"""
@@ -152,6 +263,11 @@ async def get_system_stats():
     
     try:
         stats = rag_service.get_system_stats()
+        
+        # Add sync status if available
+        if drive_sync_service:
+            stats['sync_status'] = drive_sync_service.get_sync_status()
+        
         return stats
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
@@ -165,6 +281,11 @@ async def clear_all_documents():
     
     try:
         rag_service.clear_all_documents()
+        
+        # Also clear sync state if available
+        if drive_sync_service:
+            drive_sync_service.clear_sync_state()
+        
         return {"success": True, "message": "All documents cleared successfully"}
     except Exception as e:
         logger.error(f"Error clearing documents: {e}")
@@ -177,6 +298,13 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
     
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+
+    # Auto-sync if needed (non-blocking)
+    if drive_sync_service:
+        try:
+            asyncio.create_task(drive_sync_service.auto_sync_if_needed())
+        except:
+            pass  # Don't fail chat if auto-sync fails
 
     # Enhance prompt with RAG if enabled and available
     enhanced_prompt = prompt
