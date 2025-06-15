@@ -1,12 +1,14 @@
 {
   "name": "rag-chatbot-project",
   "version": "1.0.0",
-  "description": "RAG-Enhanced Chatbot with Google Docs integration",
+  "description": "RAG-Enhanced PDF Policy Chatbot with Google Drive integration",
   "scripts": {
     "install-all": "cd backend && pip install -r requirements.txt && cd ../frontend && npm install",
     "start-backend": "cd backend && python main.py",
     "start-frontend": "cd frontend && npm start",
-    "dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\""
+    "dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\"",
+    "backend": "cd backend && python main.py",
+    "frontend": "cd frontend && npm start"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
@@ -15,7 +17,9 @@
     "chatbot",
     "rag",
     "ai",
-    "google-docs"
+    "pdf",
+    "google-drive",
+    "policy-documents"
   ],
   "author": "",
   "license": "MIT"
