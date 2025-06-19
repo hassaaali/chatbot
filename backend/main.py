@@ -221,6 +221,8 @@ async def upload_pdf(
     title: Optional[str] = Form(None)
 ) -> DocumentResponse:
     """Upload a PDF file directly to the RAG system"""
+    logger.info(f"Received file upload request: {file.filename}")
+    
     if not file_upload_service:
         raise HTTPException(status_code=503, detail="File upload service not available")
     
@@ -229,10 +231,13 @@ async def upload_pdf(
     
     try:
         # Process the uploaded PDF
+        logger.info("Processing uploaded PDF...")
         document = await file_upload_service.process_uploaded_pdf(file, title)
+        logger.info("PDF processing completed, adding to RAG system...")
         
         # Add to RAG system
         rag_service.add_document(document)
+        logger.info("Document added to RAG system successfully")
         
         return DocumentResponse(
             success=True,

@@ -6,12 +6,14 @@ const FileUploadManager = ({ onUploadSuccess }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
 
   const handleFileSelect = (file) => {
     if (file && file.type === 'application/pdf') {
       setSelectedFile(file);
       setTitle(file.name.replace('.pdf', ''));
       setError('');
+      setUploadProgress('');
     } else {
       setError('Please select a PDF file');
       setSelectedFile(null);
@@ -51,6 +53,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
 
     setIsUploading(true);
     setError('');
+    setUploadProgress('Preparing upload...');
 
     try {
       const formData = new FormData();
@@ -59,10 +62,14 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         formData.append('title', title.trim());
       }
 
+      setUploadProgress('Uploading file...');
+
       const response = await fetch('http://localhost:8000/documents/upload', {
         method: 'POST',
         body: formData,
       });
+
+      setUploadProgress('Processing response...');
 
       const data = await response.json();
 
@@ -70,6 +77,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         setSelectedFile(null);
         setTitle('');
         setError('');
+        setUploadProgress('');
         alert(`PDF "${data.document_info.title}" uploaded successfully!`);
         
         // Reset file input
@@ -82,10 +90,12 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         }
       } else {
         setError(data.detail || 'Failed to upload PDF');
+        setUploadProgress('');
       }
     } catch (error) {
       console.error('Error uploading PDF:', error);
       setError('Error connecting to server. Make sure the backend is running on http://localhost:8000');
+      setUploadProgress('');
     } finally {
       setIsUploading(false);
     }
@@ -165,6 +175,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
                 setSelectedFile(null);
                 setTitle('');
                 setError('');
+                setUploadProgress('');
                 document.getElementById('pdf-file-input').value = '';
               }}
               disabled={isUploading}
@@ -173,6 +184,15 @@ const FileUploadManager = ({ onUploadSuccess }) => {
               Cancel
             </button>
           </div>
+
+          {uploadProgress && (
+            <div className="upload-progress">
+              <div className="progress-text">{uploadProgress}</div>
+              <div className="progress-bar">
+                <div className="progress-fill"></div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -322,6 +342,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         .upload-actions {
           display: flex;
           gap: 10px;
+          margin-bottom: 15px;
         }
 
         .upload-btn {
@@ -359,6 +380,38 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         .cancel-btn:disabled {
           background-color: #ccc;
           cursor: not-allowed;
+        }
+
+        .upload-progress {
+          margin-bottom: 15px;
+        }
+
+        .progress-text {
+          font-size: 0.9em;
+          color: #007bff;
+          margin-bottom: 8px;
+          font-weight: 500;
+        }
+
+        .progress-bar {
+          width: 100%;
+          height: 6px;
+          background-color: #e9ecef;
+          border-radius: 3px;
+          overflow: hidden;
+        }
+
+        .progress-fill {
+          height: 100%;
+          background-color: #007bff;
+          border-radius: 3px;
+          animation: progress-animation 2s ease-in-out infinite;
+        }
+
+        @keyframes progress-animation {
+          0% { width: 0%; }
+          50% { width: 70%; }
+          100% { width: 100%; }
         }
 
         .error {
