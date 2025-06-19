@@ -9,9 +9,11 @@ const DocumentManager = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('upload'); // 'upload' or 'google-drive'
+  const [driveStatus, setDriveStatus] = useState(null);
 
   useEffect(() => {
     fetchStats();
+    fetchDriveStatus();
   }, []);
 
   const fetchStats = async () => {
@@ -23,6 +25,18 @@ const DocumentManager = () => {
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  };
+
+  const fetchDriveStatus = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/google-drive/status');
+      if (response.ok) {
+        const data = await response.json();
+        setDriveStatus(data);
+      }
+    } catch (error) {
+      console.error('Error fetching Google Drive status:', error);
     }
   };
 
@@ -163,22 +177,34 @@ const DocumentManager = () => {
       ) : (
         <div className="google-drive-section">
           <h4>Add from Google Drive</h4>
+          
+          {/* Google Drive Status Check */}
+          {driveStatus && !driveStatus.authenticated && (
+            <div className="drive-warning">
+              <p>⚠️ {driveStatus.message}</p>
+              <p>Please go to the "Folder Sync" tab and connect to Google Drive first.</p>
+            </div>
+          )}
+          
           <div className="add-document">
             <input
               type="text"
               value={documentId}
               onChange={handleDocumentIdChange}
               placeholder="Google Drive PDF File ID or URL"
-              disabled={isLoading}
+              disabled={isLoading || !driveStatus?.authenticated}
             />
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Custom title (optional)"
-              disabled={isLoading}
+              disabled={isLoading || !driveStatus?.authenticated}
             />
-            <button onClick={addDocument} disabled={isLoading || !documentId.trim()}>
+            <button 
+              onClick={addDocument} 
+              disabled={isLoading || !documentId.trim() || !driveStatus?.authenticated}
+            >
               {isLoading ? 'Adding...' : 'Add PDF Document'}
             </button>
             {error && <div className="error">{error}</div>}
@@ -188,6 +214,7 @@ const DocumentManager = () => {
           <div className="instructions">
             <h5>How to add a PDF from Google Drive:</h5>
             <ol>
+              <li>Connect to Google Drive using the "Folder Sync" tab</li>
               <li>Upload your PDF document to Google Drive</li>
               <li>Right-click the PDF file and select "Get link"</li>
               <li>Make sure it's shared (at least view access)</li>
@@ -318,6 +345,20 @@ const DocumentManager = () => {
           color: #333;
         }
 
+        .drive-warning {
+          background-color: #fff3cd;
+          color: #856404;
+          padding: 12px;
+          border-radius: 6px;
+          border: 1px solid #ffeaa7;
+          margin-bottom: 15px;
+        }
+
+        .drive-warning p {
+          margin: 5px 0;
+          font-weight: 500;
+        }
+
         .add-document {
           display: flex;
           flex-direction: column;
@@ -329,6 +370,11 @@ const DocumentManager = () => {
           padding: 8px;
           border: 1px solid #ddd;
           border-radius: 4px;
+        }
+
+        .add-document input:disabled {
+          background-color: #f8f9fa;
+          color: #6c757d;
         }
 
         .add-document button {

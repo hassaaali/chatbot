@@ -42,7 +42,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# Initialize services
+# Initialize core services (always available)
 google_drive_service = None
 drive_sync_service = None
 document_processor = None
@@ -67,33 +67,11 @@ try:
     file_upload_service = FileUploadService()
     logger.info("File upload service initialized")
     
-    # Initialize Google services (optional)
-    if os.path.exists(Config.GOOGLE_CREDENTIALS_PATH):
-        try:
-            logger.info("Initializing Google Drive service...")
-            google_drive_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
-            logger.info("Google Drive service initialized successfully")
-            
-            logger.info("Initializing Drive Sync service...")
-            drive_sync_service = DriveSyncService(
-                google_drive_service, 
-                rag_service, 
-                Config.DRIVE_SYNC_INTERVAL_HOURS
-            )
-            logger.info("Drive Sync service initialized successfully")
-            
-            logger.info("All Google services initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize Google services: {e}")
-            logger.info("Individual document management will still work if you restart and complete authentication")
-            # Reset services to None if initialization failed
-            google_drive_service = None
-            drive_sync_service = None
-    else:
-        logger.warning(f"Google credentials file not found at {Config.GOOGLE_CREDENTIALS_PATH}")
+    # Note: Google services are NOT initialized automatically
+    logger.info("Core services initialized successfully. Google Drive services will be initialized on user request.")
         
 except Exception as e:
-    logger.error(f"Failed to initialize services: {e}")
+    logger.error(f"Failed to initialize core services: {e}")
 
 # Pydantic models
 class PromptRequest(BaseModel):
@@ -118,6 +96,11 @@ class SyncResponse(BaseModel):
     message: str
     stats: Optional[dict] = None
 
+class GoogleDriveStatusResponse(BaseModel):
+    authenticated: bool
+    credentials_available: bool
+    message: str
+
 @app.get("/")
 async def root():
     return {"message": "RAG-Enhanced PDF Chatbot API", "version": "1.0.0"}
@@ -136,39 +119,100 @@ async def health_check():
         }
     }
 
-@app.get("/debug/services")
-async def debug_services():
-    """Debug endpoint to check service initialization status"""
-    debug_info = {
-        "credentials_file_exists": os.path.exists(Config.GOOGLE_CREDENTIALS_PATH),
-        "credentials_path": Config.GOOGLE_CREDENTIALS_PATH,
-        "token_file_exists": os.path.exists("token.pickle"),
-        "services": {
-            "google_drive": {
-                "initialized": google_drive_service is not None,
-                "class": str(type(google_drive_service)) if google_drive_service else None
-            },
-            "drive_sync": {
-                "initialized": drive_sync_service is not None,
-                "class": str(type(drive_sync_service)) if drive_sync_service else None
-            },
-            "file_upload": {
-                "initialized": file_upload_service is not None,
-                "class": str(type(file_upload_service)) if file_upload_service else None
-            }
+# Google Drive authentication endpoints
+@app.get("/google-drive/status")
+async def get_google_drive_status() -> GoogleDriveStatusResponse:
+    """Check Google Drive authentication status"""
+    credentials_available = os.path.exists(Config.GOOGLE_CREDENTIALS_PATH)
+    authenticated = google_drive_service is not None
+    
+    if not credentials_available:
+        return GoogleDriveStatusResponse(
+            authenticated=False,
+            credentials_available=False,
+            message="Google Drive credentials not found. Please add credentials.json to enable Google Drive features."
+        )
+    elif not authenticated:
+        return GoogleDriveStatusResponse(
+            authenticated=False,
+            credentials_available=True,
+            message="Google Drive credentials available but not authenticated. Click 'Connect to Google Drive' to authenticate."
+        )
+    else:
+        return GoogleDriveStatusResponse(
+            authenticated=True,
+            credentials_available=True,
+            message="Google Drive is connected and ready to use."
+        )
+
+@app.post("/google-drive/connect")
+async def connect_google_drive():
+    """Initialize Google Drive connection with user authentication"""
+    global google_drive_service, drive_sync_service
+    
+    if not os.path.exists(Config.GOOGLE_CREDENTIALS_PATH):
+        raise HTTPException(
+            status_code=400,
+            detail="Google Drive credentials file not found. Please add credentials.json to the backend directory."
+        )
+    
+    try:
+        logger.info("User requested Google Drive connection - initializing services...")
+        
+        # Initialize Google Drive service (this will trigger OAuth flow)
+        google_drive_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
+        logger.info("Google Drive service initialized successfully")
+        
+        # Initialize Drive Sync service
+        drive_sync_service = DriveSyncService(
+            google_drive_service, 
+            rag_service, 
+            Config.DRIVE_SYNC_INTERVAL_HOURS
+        )
+        logger.info("Drive Sync service initialized successfully")
+        
+        return {
+            "success": True,
+            "message": "Successfully connected to Google Drive! You can now use Google Drive features."
         }
-    }
+        
+    except Exception as e:
+        logger.error(f"Failed to connect to Google Drive: {e}")
+        # Reset services if initialization failed
+        google_drive_service = None
+        drive_sync_service = None
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to connect to Google Drive: {str(e)}"
+        )
+
+@app.post("/google-drive/disconnect")
+async def disconnect_google_drive():
+    """Disconnect Google Drive services"""
+    global google_drive_service, drive_sync_service
     
-    # Try to get more detailed error info
-    if os.path.exists(Config.GOOGLE_CREDENTIALS_PATH) and not google_drive_service:
-        try:
-            # Try to initialize just to see what error we get
-            test_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
-            debug_info["test_initialization"] = "Success"
-        except Exception as e:
-            debug_info["test_initialization_error"] = str(e)
-    
-    return debug_info
+    try:
+        # Remove token file to force re-authentication next time
+        token_path = 'token.pickle'
+        if os.path.exists(token_path):
+            os.remove(token_path)
+            logger.info("Removed Google Drive authentication token")
+        
+        # Reset services
+        google_drive_service = None
+        drive_sync_service = None
+        
+        return {
+            "success": True,
+            "message": "Disconnected from Google Drive. You can reconnect anytime."
+        }
+        
+    except Exception as e:
+        logger.error(f"Error disconnecting Google Drive: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to disconnect Google Drive: {str(e)}"
+        )
 
 # File upload endpoints
 @app.post("/documents/upload")
@@ -206,14 +250,14 @@ async def upload_pdf(
         logger.error(f"Error uploading PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to upload PDF: {str(e)}")
 
-# Individual document management
+# Individual document management (requires Google Drive connection)
 @app.post("/documents/add")
 async def add_document(request: DocumentRequest) -> DocumentResponse:
     """Add a single PDF document from Google Drive to the RAG system"""
     if not google_drive_service:
         raise HTTPException(
             status_code=503, 
-            detail="Google Drive service not available. Please ensure credentials.json is configured and restart the application."
+            detail="Google Drive not connected. Please connect to Google Drive first using the 'Connect to Google Drive' button."
         )
     
     if not rag_service:
@@ -245,14 +289,14 @@ async def add_document(request: DocumentRequest) -> DocumentResponse:
         logger.error(f"Error adding document: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to add document: {str(e)}")
 
-# Drive folder management endpoints
+# Drive folder management endpoints (requires Google Drive connection)
 @app.post("/drive/sync")
 async def sync_drive_folder(request: FolderSyncRequest, background_tasks: BackgroundTasks) -> SyncResponse:
     """Sync PDF documents from a Google Drive folder"""
     if not drive_sync_service:
         raise HTTPException(
             status_code=503,
-            detail="Google Drive service not available. Please ensure credentials.json is configured and restart the application."
+            detail="Google Drive not connected. Please connect to Google Drive first using the 'Connect to Google Drive' button."
         )
     
     try:
@@ -285,7 +329,10 @@ async def sync_drive_folder(request: FolderSyncRequest, background_tasks: Backgr
 async def get_sync_status():
     """Get current sync status"""
     if not drive_sync_service:
-        raise HTTPException(status_code=503, detail="Drive sync service not available")
+        raise HTTPException(
+            status_code=503, 
+            detail="Google Drive not connected. Please connect to Google Drive first."
+        )
     
     return drive_sync_service.get_sync_status()
 
@@ -293,7 +340,10 @@ async def get_sync_status():
 async def scan_drive_folder(folder_id: Optional[str] = None):
     """Scan a Drive folder for PDF documents without syncing (preview what would be synced)"""
     if not google_drive_service:
-        raise HTTPException(status_code=503, detail="Google Drive service not available")
+        raise HTTPException(
+            status_code=503, 
+            detail="Google Drive not connected. Please connect to Google Drive first."
+        )
     
     try:
         logger.info(f"Scanning folder: {folder_id or 'entire Drive'}")
@@ -325,7 +375,10 @@ async def scan_drive_folder(folder_id: Optional[str] = None):
 async def trigger_auto_sync(folder_id: Optional[str] = None):
     """Trigger auto-sync if needed"""
     if not drive_sync_service:
-        raise HTTPException(status_code=503, detail="Drive sync service not available")
+        raise HTTPException(
+            status_code=503, 
+            detail="Google Drive not connected. Please connect to Google Drive first."
+        )
     
     try:
         stats = await drive_sync_service.auto_sync_if_needed(folder_id)
