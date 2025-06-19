@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import FileUploadManager from './FileUploadManager';
 
 const DocumentManager = () => {
   const [documentId, setDocumentId] = useState('');
@@ -7,6 +8,7 @@ const DocumentManager = () => {
   const [stats, setStats] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('upload'); // 'upload' or 'google-drive'
 
   useEffect(() => {
     fetchStats();
@@ -22,6 +24,11 @@ const DocumentManager = () => {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
+  };
+
+  const handleUploadSuccess = (documentInfo) => {
+    setDocuments(prev => [...prev, documentInfo]);
+    fetchStats();
   };
 
   const addDocument = async () => {
@@ -136,27 +143,65 @@ const DocumentManager = () => {
     <div className="document-manager">
       <h3>Individual PDF Manager</h3>
       
-      <div className="add-document">
-        <input
-          type="text"
-          value={documentId}
-          onChange={handleDocumentIdChange}
-          placeholder="Google Drive PDF File ID or URL"
-          disabled={isLoading}
-        />
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Custom title (optional)"
-          disabled={isLoading}
-        />
-        <button onClick={addDocument} disabled={isLoading || !documentId.trim()}>
-          {isLoading ? 'Adding...' : 'Add PDF Document'}
+      <div className="method-selector">
+        <button 
+          className={activeTab === 'upload' ? 'active' : ''}
+          onClick={() => setActiveTab('upload')}
+        >
+          📁 Upload PDF
         </button>
-        {error && <div className="error">{error}</div>}
-        }
+        <button 
+          className={activeTab === 'google-drive' ? 'active' : ''}
+          onClick={() => setActiveTab('google-drive')}
+        >
+          🔗 Google Drive
+        </button>
       </div>
+
+      {activeTab === 'upload' ? (
+        <FileUploadManager onUploadSuccess={handleUploadSuccess} />
+      ) : (
+        <div className="google-drive-section">
+          <h4>Add from Google Drive</h4>
+          <div className="add-document">
+            <input
+              type="text"
+              value={documentId}
+              onChange={handleDocumentIdChange}
+              placeholder="Google Drive PDF File ID or URL"
+              disabled={isLoading}
+            />
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Custom title (optional)"
+              disabled={isLoading}
+            />
+            <button onClick={addDocument} disabled={isLoading || !documentId.trim()}>
+              {isLoading ? 'Adding...' : 'Add PDF Document'}
+            </button>
+            {error && <div className="error">{error}</div>}
+          </div>
+
+          <div className="instructions">
+            <h5>How to add a PDF from Google Drive:</h5>
+            <ol>
+              <li>Upload your PDF document to Google Drive</li>
+              <li>Right-click the PDF file and select "Get link"</li>
+              <li>Make sure it's shared (at least view access)</li>
+              <li>Copy the file ID from the URL or paste the full URL</li>
+              <li>Optionally add a custom title</li>
+              <li>Click "Add PDF Document"</li>
+            </ol>
+            
+            <h6>File ID Format:</h6>
+            <p>From a Google Drive URL like:</p>
+            <code>https://drive.google.com/file/d/[FILE_ID]/view</code>
+            <p>Copy just the FILE_ID part, or paste the entire URL.</p>
+          </div>
+        </div>
+      )}
 
       {stats && (
         <div className="stats">
@@ -192,6 +237,11 @@ const DocumentManager = () => {
                   {doc.file_size && (
                     <span className="doc-size">Size: {formatFileSize(doc.file_size)}</span>
                   )}
+                  {doc.source && (
+                    <span className={`doc-source source-${doc.source}`}>
+                      Source: {doc.source === 'upload' ? '📁 Upload' : '🔗 Google Drive'}
+                    </span>
+                  )}
                 </div>
                 <button onClick={() => removeDocument(doc.document_id)}>Remove</button>
               </li>
@@ -206,26 +256,6 @@ const DocumentManager = () => {
         </button>
       )}
 
-      <div className="instructions">
-        <h4>How to add a PDF from Google Drive:</h4>
-        <ol>
-          <li>Upload your PDF policy document to Google Drive</li>
-          <li>Right-click the PDF file and select "Get link"</li>
-          <li>Make sure it's shared (at least view access)</li>
-          <li>Copy the file ID from the URL or paste the full URL</li>
-          <li>Optionally add a custom title</li>
-          <li>Click "Add PDF Document"</li>
-        </ol>
-        
-        <h5>File ID Format:</h5>
-        <p>From a Google Drive URL like:</p>
-        <code>https://drive.google.com/file/d/[FILE_ID]/view</code>
-        <p>Copy just the FILE_ID part, or paste the entire URL.</p>
-        
-        <h5>Supported Files:</h5>
-        <p>Only PDF documents are supported. The system will extract text content for RAG processing.</p>
-      </div>
-
       <style jsx>{`
         .document-manager {
           background-color: white;
@@ -236,6 +266,54 @@ const DocumentManager = () => {
 
         .document-manager h3 {
           margin-top: 0;
+          color: #333;
+        }
+
+        .method-selector {
+          display: flex;
+          margin-bottom: 20px;
+          border-radius: 8px;
+          overflow: hidden;
+          border: 1px solid #dee2e6;
+          background-color: #f8f9fa;
+        }
+
+        .method-selector button {
+          flex: 1;
+          padding: 12px 16px;
+          border: none;
+          background-color: transparent;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 600;
+          transition: all 0.2s ease;
+          color: #6c757d;
+        }
+
+        .method-selector button:hover {
+          background-color: #e9ecef;
+          color: #495057;
+        }
+
+        .method-selector button.active {
+          background-color: #007bff;
+          color: white;
+        }
+
+        .method-selector button:not(:last-child) {
+          border-right: 1px solid #dee2e6;
+        }
+
+        .google-drive-section {
+          background-color: #f8f9fa;
+          padding: 20px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        }
+
+        .google-drive-section h4 {
+          margin-top: 0;
+          margin-bottom: 15px;
           color: #333;
         }
 
@@ -342,6 +420,26 @@ const DocumentManager = () => {
           font-weight: 500;
         }
 
+        .doc-source {
+          font-size: 0.8em;
+          font-weight: 600;
+          padding: 2px 6px;
+          border-radius: 3px;
+          margin-top: 4px;
+          display: inline-block;
+          width: fit-content;
+        }
+
+        .source-upload {
+          background-color: #e3f2fd;
+          color: #1976d2;
+        }
+
+        .source-google_drive {
+          background-color: #f3e5f5;
+          color: #7b1fa2;
+        }
+
         .document-list button {
           padding: 4px 8px;
           background-color: #dc3545;
@@ -377,7 +475,7 @@ const DocumentManager = () => {
           border-top: 1px solid #ddd;
         }
 
-        .instructions h4, .instructions h5 {
+        .instructions h5, .instructions h6 {
           margin-bottom: 10px;
           color: #333;
         }

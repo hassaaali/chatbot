@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import httpx
@@ -15,6 +15,7 @@ from services.drive_sync_service import DriveSyncService
 from services.document_processor import DocumentProcessor
 from services.vector_store import VectorStore
 from services.rag_service import RAGService
+from services.file_upload_service import FileUploadService
 
 # Configure logging
 logging.basicConfig(
@@ -47,6 +48,7 @@ drive_sync_service = None
 document_processor = None
 vector_store = None
 rag_service = None
+file_upload_service = None
 
 try:
     # Initialize document processor
@@ -60,6 +62,10 @@ try:
     # Initialize RAG service
     rag_service = RAGService(vector_store, document_processor)
     logger.info("RAG service initialized")
+    
+    # Initialize file upload service
+    file_upload_service = FileUploadService()
+    logger.info("File upload service initialized")
     
     # Initialize Google services (optional)
     if os.path.exists(Config.GOOGLE_CREDENTIALS_PATH):
@@ -125,7 +131,8 @@ async def health_check():
             "drive_sync": drive_sync_service is not None,
             "rag": rag_service is not None,
             "vector_store": vector_store is not None,
-            "document_processor": document_processor is not None
+            "document_processor": document_processor is not None,
+            "file_upload": file_upload_service is not None
         }
     }
 
@@ -144,6 +151,10 @@ async def debug_services():
             "drive_sync": {
                 "initialized": drive_sync_service is not None,
                 "class": str(type(drive_sync_service)) if drive_sync_service else None
+            },
+            "file_upload": {
+                "initialized": file_upload_service is not None,
+                "class": str(type(file_upload_service)) if file_upload_service else None
             }
         }
     }
@@ -158,6 +169,42 @@ async def debug_services():
             debug_info["test_initialization_error"] = str(e)
     
     return debug_info
+
+# File upload endpoints
+@app.post("/documents/upload")
+async def upload_pdf(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None)
+) -> DocumentResponse:
+    """Upload a PDF file directly to the RAG system"""
+    if not file_upload_service:
+        raise HTTPException(status_code=503, detail="File upload service not available")
+    
+    if not rag_service:
+        raise HTTPException(status_code=503, detail="RAG service not available")
+    
+    try:
+        # Process the uploaded PDF
+        document = await file_upload_service.process_uploaded_pdf(file, title)
+        
+        # Add to RAG system
+        rag_service.add_document(document)
+        
+        return DocumentResponse(
+            success=True,
+            message=f"Successfully uploaded and processed PDF '{document['title']}'",
+            document_info={
+                "title": document['title'],
+                "document_id": document['id'],
+                "content_length": len(document['content']),
+                "file_size": document.get('size', 0),
+                "filename": document.get('filename', ''),
+                "source": "upload"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error uploading PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload PDF: {str(e)}")
 
 # Individual document management
 @app.post("/documents/add")
@@ -190,7 +237,8 @@ async def add_document(request: DocumentRequest) -> DocumentResponse:
                 "title": document['title'],
                 "document_id": document['id'],
                 "content_length": len(document['content']),
-                "file_size": document.get('size', 0)
+                "file_size": document.get('size', 0),
+                "source": "google_drive"
             }
         )
     except Exception as e:
