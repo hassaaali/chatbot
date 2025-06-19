@@ -182,6 +182,7 @@ const DocumentManager = () => {
               {isLoading ? 'Adding...' : 'Add PDF Document'}
             </button>
             {error && <div className="error">{error}</div>}
+            }
           </div>
 
           <div className="instructions">
