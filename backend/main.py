@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 import httpx
 import json
 import logging
+import gc
 from pydantic import BaseModel
 from typing import Optional, List
 import os
@@ -91,6 +92,9 @@ def cleanup_cache():
                 except Exception as e:
                     logger.warning(f"Error removing file {pickle_file}: {e}")
         
+        # Force garbage collection
+        gc.collect()
+        
         logger.info("Application cleanup completed successfully")
         
     except Exception as e:
@@ -108,11 +112,11 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 try:
-    # Initialize document processor
+    # Initialize document processor with optimized settings
     document_processor = DocumentProcessor(Config.CHUNK_SIZE, Config.CHUNK_OVERLAP)
     logger.info("Document processor initialized")
     
-    # Initialize vector store
+    # Initialize vector store with memory optimization
     vector_store = VectorStore(Config.CHROMA_DB_PATH, Config.EMBEDDING_MODEL)
     logger.info("Vector store initialized")
     
@@ -120,8 +124,8 @@ try:
     rag_service = RAGService(vector_store, document_processor)
     logger.info("RAG service initialized")
     
-    # Initialize file upload service
-    file_upload_service = FileUploadService()
+    # Initialize file upload service with reduced file size limit
+    file_upload_service = FileUploadService(Config.MAX_FILE_SIZE)
     logger.info("File upload service initialized")
     
     logger.info("All services initialized successfully")
@@ -178,7 +182,7 @@ async def upload_pdf(
         raise HTTPException(status_code=503, detail="RAG service not available")
     
     try:
-        # Process the uploaded PDF
+        # Process the uploaded PDF with memory optimization
         logger.info("Processing uploaded PDF...")
         document = await file_upload_service.process_uploaded_pdf(file, title)
         logger.info("PDF processing completed, adding to RAG system...")
@@ -186,6 +190,9 @@ async def upload_pdf(
         # Add to RAG system
         rag_service.add_document(document)
         logger.info("Document added to RAG system successfully")
+        
+        # Force garbage collection after processing
+        gc.collect()
         
         return DocumentResponse(
             success=True,
@@ -201,6 +208,8 @@ async def upload_pdf(
         )
     except Exception as e:
         logger.error(f"Error uploading PDF: {e}")
+        # Force garbage collection on error
+        gc.collect()
         raise HTTPException(status_code=500, detail=f"Failed to upload PDF: {str(e)}")
 
 @app.delete("/documents/{document_id}")
@@ -211,6 +220,7 @@ async def delete_document(document_id: str):
     
     try:
         rag_service.delete_document(document_id)
+        gc.collect()  # Force garbage collection after deletion
         return {"success": True, "message": f"Document {document_id} removed successfully"}
     except Exception as e:
         logger.error(f"Error deleting document: {e}")
@@ -237,6 +247,7 @@ async def clear_all_documents():
     
     try:
         rag_service.clear_all_documents()
+        gc.collect()  # Force garbage collection after clearing
         return {"success": True, "message": "All documents cleared successfully"}
     except Exception as e:
         logger.error(f"Error clearing documents: {e}")
@@ -288,7 +299,7 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
                 yield f"data: [ERROR] Together AI API key not configured. Please set TOGETHER_API_KEY in your environment.\n\n"
                 return
             
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=120.0) as client:  # Increased timeout
                 async with client.stream(
                     "POST",
                     "https://api.together.xyz/inference",
@@ -343,6 +354,9 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
             yield f"data: [ERROR] Internal server error\n\n"
+        finally:
+            # Force garbage collection after streaming
+            gc.collect()
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

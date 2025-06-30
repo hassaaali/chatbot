@@ -9,7 +9,16 @@ const FileUploadManager = ({ onUploadSuccess }) => {
   const [uploadProgress, setUploadProgress] = useState('');
 
   const handleFileSelect = (file) => {
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    
     if (file && file.type === 'application/pdf') {
+      if (file.size > maxSize) {
+        setError(`File size (${formatFileSize(file.size)}) exceeds the 10MB limit. Please select a smaller file.`);
+        setSelectedFile(null);
+        return;
+      }
+      
       setSelectedFile(file);
       setTitle(file.name.replace('.pdf', ''));
       setError('');
@@ -123,6 +132,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         <div className="upload-content">
           <div className="upload-icon">⚖️</div>
           <p>Drag and drop a legal PDF here, or click to select</p>
+          <p className="size-limit">Maximum file size: 10MB</p>
           <input
             id="pdf-file-input"
             type="file"
@@ -148,6 +158,9 @@ const FileUploadManager = ({ onUploadSuccess }) => {
           <div className="file-info">
             <span className="file-name">⚖️ {selectedFile.name}</span>
             <span className="file-size">{formatFileSize(selectedFile.size)}</span>
+            <span className={`size-status ${selectedFile.size > 10 * 1024 * 1024 ? 'over-limit' : 'within-limit'}`}>
+              {selectedFile.size > 10 * 1024 * 1024 ? '⚠️ Over 10MB limit' : '✅ Within size limit'}
+            </span>
           </div>
           
           <div className="title-input">
@@ -165,7 +178,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
           <div className="upload-actions">
             <button 
               onClick={uploadFile} 
-              disabled={isUploading}
+              disabled={isUploading || selectedFile.size > 10 * 1024 * 1024}
               className="upload-btn"
             >
               {isUploading ? 'Processing...' : 'Upload Legal Document'}
@@ -197,13 +210,12 @@ const FileUploadManager = ({ onUploadSuccess }) => {
       )}
 
       {error && <div className="error">{error}</div>}
-      }
 
       <div className="upload-info">
         <h5>📋 Legal Document Requirements:</h5>
         <ul>
           <li>File format: PDF only</li>
-          <li>Maximum file size: 50MB</li>
+          <li><strong>Maximum file size: 10MB (reduced for better performance)</strong></li>
           <li>Supported: Contracts, policies, legal briefs, regulations, etc.</li>
           <li>Text-based PDFs work best for analysis</li>
           <li>Documents are processed securely and locally</li>
@@ -250,7 +262,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 15px;
+          gap: 10px;
         }
 
         .upload-icon {
@@ -262,6 +274,12 @@ const FileUploadManager = ({ onUploadSuccess }) => {
           margin: 0;
           color: #6c757d;
           font-size: 1rem;
+        }
+
+        .size-limit {
+          font-size: 0.9rem !important;
+          color: #dc3545 !important;
+          font-weight: 600;
         }
 
         .select-file-btn {
@@ -313,6 +331,23 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         .file-size {
           font-size: 0.9em;
           color: #6c757d;
+        }
+
+        .size-status {
+          font-size: 0.85em;
+          font-weight: 600;
+          padding: 2px 6px;
+          border-radius: 3px;
+        }
+
+        .within-limit {
+          color: #155724;
+          background-color: #d4edda;
+        }
+
+        .over-limit {
+          color: #721c24;
+          background-color: #f8d7da;
         }
 
         .title-input {
@@ -446,6 +481,10 @@ const FileUploadManager = ({ onUploadSuccess }) => {
 
         .upload-info li {
           margin-bottom: 5px;
+        }
+
+        .upload-info li strong {
+          color: #dc3545;
         }
       `}</style>
     </div>
