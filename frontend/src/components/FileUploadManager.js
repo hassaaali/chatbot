@@ -210,6 +210,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
       )}
 
       {error && <div className="error">{error}</div>}
+      }
 
       <div className="upload-info">
         <h5>📋 Legal Document Requirements:</h5>
