@@ -1,6 +1,6 @@
-# ⚖️ Legal AI Assistant - RAG-Enhanced PDF Chatbot
+# ⚖️ Legal AI Assistant - RAG-Enhanced PDF Chatbot (Hugging Face)
 
-A comprehensive RAG (Retrieval-Augmented Generation) legal assistant that processes legal PDF documents to provide expert legal analysis and guidance. Upload legal documents and get intelligent, context-aware legal advice based on your document content with specialized legal AI analysis. **Features automatic cache clearing when the application is closed to maintain confidentiality.**
+A comprehensive RAG (Retrieval-Augmented Generation) legal assistant powered by **Hugging Face** that processes legal PDF documents to provide expert legal analysis and guidance. Upload legal documents and get intelligent, context-aware legal advice using state-of-the-art AI models from Hugging Face. **Features automatic cache clearing when the application is closed to maintain confidentiality.**
 
 ## 🚀 Features
 
@@ -10,12 +10,19 @@ A comprehensive RAG (Retrieval-Augmented Generation) legal assistant that proces
 - **📚 Legal Knowledge Base**: Persistent storage of processed legal documents with vector embeddings
 - **🗑️ Confidential Auto-cleanup**: Automatically clears all legal documents when application closes
 
-### Legal AI Analysis
-- **⚖️ Legal-Specialized LLM**: Uses Llama-3.1-70B-Instruct-Turbo optimized for legal analysis
+### Hugging Face AI Integration
+- **🤖 Multiple AI Models**: Choose from various Hugging Face models optimized for legal analysis
+- **⚖️ Legal-Specialized Processing**: Custom prompts and processing designed for legal contexts
 - **🧠 Always-On Legal Context**: RAG permanently enabled for accurate legal guidance
 - **🔍 Legal Semantic Search**: Advanced vector similarity search for legal concepts
 - **📚 Legal Source Attribution**: See which legal documents the AI references in responses
 - **⚡ Streaming Legal Analysis**: Real-time streaming responses for complex legal questions
+
+### Available AI Models
+- **microsoft/DialoGPT-large**: Large conversational model, excellent for legal Q&A
+- **google/flan-t5-large**: Instruction-following model, superior for legal analysis
+- **facebook/blenderbot-400M-distill**: Balanced model for legal document discussion
+- **microsoft/GODEL-v1_1-large-seq2seq**: Goal-oriented model for legal guidance
 
 ### Legal Document Processing
 - **📄 Multi-method Legal Text Extraction**: Optimized for legal PDFs using pdfplumber and PyPDF2
@@ -31,13 +38,13 @@ A comprehensive RAG (Retrieval-Augmented Generation) legal assistant that proces
 ## 🏗️ Project Structure
 
 ```
-├── backend/                 # Python FastAPI backend with legal AI
-│   ├── services/           # Legal RAG, Vector Store, PDF Processing, File Upload
-│   ├── main.py            # FastAPI application with legal prompt engineering
-│   ├── config.py          # Legal AI model configuration
+├── backend/                 # Python FastAPI backend with Hugging Face integration
+│   ├── services/           # Legal RAG, Vector Store, PDF Processing, HF Client
+│   ├── main.py            # FastAPI application with Hugging Face streaming
+│   ├── config.py          # Hugging Face API configuration
 │   └── requirements.txt   # Python dependencies
-├── frontend/              # React frontend with legal UI
-│   ├── src/              # React components with legal-specific design
+├── frontend/              # React frontend with model selection
+│   ├── src/              # React components with Hugging Face integration
 │   └── package.json      # Node.js dependencies
 └── README.md             # This file
 ```
@@ -47,7 +54,7 @@ A comprehensive RAG (Retrieval-Augmented Generation) legal assistant that proces
 ### Prerequisites
 - Python 3.8+
 - Node.js 14+
-- Together AI API key
+- **Hugging Face API key** (free at [huggingface.co](https://huggingface.co))
 
 ### Installation
 
@@ -69,14 +76,21 @@ A comprehensive RAG (Retrieval-Augmented Generation) legal assistant that proces
 
 2. **Configure environment:**
    - Copy `backend/.env.example` to `backend/.env`
-   - Add your Together AI API key:
+   - Add your Hugging Face API key:
    ```env
-   TOGETHER_API_KEY=your_together_api_key_here
-   LLM_MODEL=meta-llama/Llama-3.1-70B-Instruct-Turbo
+   HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+   LLM_MODEL=microsoft/DialoGPT-large
    LLM_TEMPERATURE=0.1
-   LLM_MAX_TOKENS=4000
+   LLM_MAX_TOKENS=2000
    LLM_TOP_P=0.9
    ```
+
+### Getting Your Hugging Face API Key
+
+1. Go to [huggingface.co](https://huggingface.co) and create a free account
+2. Navigate to your [Settings > Access Tokens](https://huggingface.co/settings/tokens)
+3. Create a new token with "Read" permissions
+4. Copy the token and add it to your `.env` file
 
 ### Running the Legal AI Assistant
 
@@ -102,6 +116,7 @@ Or start them separately:
 3. **Access the application:**
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
+   - Available Models: http://localhost:8000/models
 
 ### Manual Cache Cleanup
 
@@ -111,6 +126,14 @@ npm run cleanup
 ```
 
 ## 📖 Legal Usage
+
+### Selecting AI Models
+
+1. **Model Selection**: Use the dropdown in the chat interface to select different Hugging Face models
+2. **Recommended Models**:
+   - **DialoGPT-large**: Best for conversational legal analysis
+   - **flan-t5-large**: Excellent for instruction-following and legal reasoning
+   - **GODEL**: Goal-oriented responses for specific legal guidance
 
 ### Adding Legal Documents
 
@@ -123,13 +146,13 @@ npm run cleanup
 
 2. **Supported Legal Files**
    - PDF format only
-   - Maximum file size: 50MB
+   - Maximum file size: 10MB (optimized for performance)
    - Text-based legal PDFs work best
    - Contracts, agreements, policies, briefs, regulations, etc.
 
 ### Using the Legal AI Assistant
 
-1. **Legal AI Always Enabled**: The assistant automatically uses your uploaded legal documents for expert legal analysis
+1. **Hugging Face AI Always Enabled**: The assistant automatically uses your uploaded legal documents for expert legal analysis
 2. **Ask Legal Questions**: 
    - "What are the key terms and conditions in this contract?"
    - "Explain the legal implications of this clause"
@@ -148,17 +171,18 @@ npm run cleanup
 - **Fresh Legal Sessions**: Each time you start, you begin with a clean, confidential slate
 - **Manual Legal Cleanup**: Use `npm run cleanup` to manually clear legal cache if needed
 
-## 🔧 Legal Configuration
+## 🔧 Hugging Face Configuration
 
 ### Environment Variables (.env)
 ```env
-# Required
-TOGETHER_API_KEY=your_together_api_key_here
+# Required - Hugging Face API
+HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+HUGGINGFACE_API_URL=https://api-inference.huggingface.co/models
 
 # Legal AI Model Configuration
-LLM_MODEL=meta-llama/Llama-3.1-70B-Instruct-Turbo
+LLM_MODEL=microsoft/DialoGPT-large
 LLM_TEMPERATURE=0.1
-LLM_MAX_TOKENS=4000
+LLM_MAX_TOKENS=2000
 LLM_TOP_P=0.9
 
 # Vector Store Configuration
@@ -166,9 +190,13 @@ CHROMA_DB_PATH=./chroma_db
 EMBEDDING_MODEL=all-MiniLM-L6-v2
 
 # Legal Document Processing
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
-MAX_RETRIEVAL_RESULTS=5
+CHUNK_SIZE=500
+CHUNK_OVERLAP=100
+MAX_RETRIEVAL_RESULTS=3
+
+# Hugging Face API Settings
+HF_REQUEST_TIMEOUT=120
+HF_MAX_RETRIES=3
 ```
 
 ## 🔌 Legal API Endpoints
@@ -179,47 +207,63 @@ MAX_RETRIEVAL_RESULTS=5
 - `GET /documents/stats` - View legal system statistics and document info
 - `DELETE /documents/clear` - Clear all legal documents from knowledge base
 
-### Legal Chat Interface
-- `POST /chat/stream` - Chat with legal AI analysis and streaming responses (always enabled)
+### Hugging Face Integration
+- `GET /models` - Get available Hugging Face models for legal analysis
+- `POST /chat/stream` - Chat with Hugging Face AI analysis and streaming responses
 
 ### Health Check
-- `GET /health` - Check legal system health and AI model status
+- `GET /health` - Check legal system health and Hugging Face API status
 
 ## 🏗️ Legal AI Architecture
 
 ### Backend Legal Services
+- **HuggingFaceClient**: Direct integration with Hugging Face Inference API
 - **FileUploadService**: Handles direct legal PDF file uploads and validation
 - **PDFProcessor**: Extracts text from legal PDF files using multiple methods
 - **DocumentProcessor**: Chunks legal documents and prepares them for vector storage
 - **VectorStore**: Manages ChromaDB for legal semantic similarity search
 - **RAGService**: Orchestrates legal retrieval and generation pipeline with legal prompts
-- **Cleanup Handlers**: Automatic confidential cache clearing on application shutdown
 
 ### Frontend Legal Components
+- **Model Selector**: Interface for choosing Hugging Face models
 - **FileUploadManager**: Interface for direct legal PDF file uploads with legal-specific UI
 - **DocumentManager**: Interface for legal PDF document management and statistics
-- **ChatBox**: Streaming legal chat interface with legal AI always enabled
-- **Cleanup Logic**: Automatic confidential cache clearing on component unmount and page close
+- **ChatBox**: Streaming legal chat interface with Hugging Face AI integration
 
-### Legal Cache Management
-- **Signal Handlers**: Graceful shutdown with confidential cleanup on SIGINT/SIGTERM
-- **Event Listeners**: Browser event handling for tab/window close with legal data cleanup
-- **Automatic Legal Cleanup**: Removes ChromaDB, temporary files, and legal authentication tokens
-- **Legal Memory Management**: Efficient cleanup of legal vector embeddings and document storage
+### Hugging Face Integration
+- **Multiple Model Support**: Easy switching between different AI models
+- **Streaming Responses**: Real-time streaming from Hugging Face Inference API
+- **Error Handling**: Robust error handling with automatic retries
+- **Model Loading**: Automatic handling of model loading states
 
 ## 📋 Supported Legal File Types
 - **Legal PDF Documents**: Contracts, agreements, policies, briefs, regulations, court documents
-- **File Size Limit**: 50MB maximum per legal upload
-- **Text Extraction**: Works best with text-based legal PDFs (scanned legal images may have limited extraction)
+- **File Size Limit**: 10MB maximum per legal upload (optimized for Hugging Face processing)
+- **Text Extraction**: Works best with text-based legal PDFs
 
-## ⚖️ Legal AI Model Details
+## 🤖 Hugging Face Model Details
 
-### Llama-3.1-70B-Instruct-Turbo
-- **Specialized for Legal Analysis**: Optimized for legal document interpretation
-- **Legal Prompt Engineering**: Custom prompts designed for legal contexts
-- **Legal Terminology**: Understands legal concepts, terminology, and precedents
-- **Conservative Temperature**: Set to 0.1 for consistent, reliable legal analysis
-- **Extended Context**: 4000 max tokens for comprehensive legal responses
+### Available Models
+
+#### microsoft/DialoGPT-large
+- **Best for**: Conversational legal analysis and Q&A
+- **Strengths**: Natural dialogue, context understanding
+- **Use case**: General legal questions and document discussion
+
+#### google/flan-t5-large
+- **Best for**: Instruction-following and structured legal analysis
+- **Strengths**: Following complex instructions, reasoning
+- **Use case**: Detailed legal analysis and specific tasks
+
+#### facebook/blenderbot-400M-distill
+- **Best for**: Balanced legal document discussion
+- **Strengths**: Efficient processing, good general performance
+- **Use case**: Quick legal consultations and document overview
+
+#### microsoft/GODEL-v1_1-large-seq2seq
+- **Best for**: Goal-oriented legal guidance
+- **Strengths**: Task-focused responses, legal reasoning
+- **Use case**: Specific legal advice and actionable guidance
 
 ### Legal Prompt Features
 - **Legal Context Awareness**: Distinguishes between document content and general legal knowledge
@@ -229,64 +273,64 @@ MAX_RETRIEVAL_RESULTS=5
 
 ## 🔧 Legal Troubleshooting
 
-### Common Legal Issues
+### Common Hugging Face Issues
+
+**API Key Issues**:
+- Ensure your Hugging Face API key is valid and has proper permissions
+- Check that the key is correctly set in your `.env` file
+- Verify your Hugging Face account has API access
+
+**Model Loading Issues**:
+- Some models may take time to load on first use
+- The system automatically retries with exponential backoff
+- Try switching to a different model if one is consistently slow
 
 **Legal PDF Upload Issues**:
 - Ensure legal PDF files are not password-protected
-- Check file size is under 50MB limit
+- Check file size is under 10MB limit
 - Some scanned legal documents may have limited text extraction
 
-**Legal Cache Issues**:
-- If legal cache isn't clearing automatically, use `npm run cleanup`
-- Ensure proper permissions for legal file/directory deletion
-- Check logs for legal cleanup errors
-
-**Legal Vector Store Issues**:
-- Ensure sufficient disk space for legal ChromaDB
-- Check write permissions for the legal database directory
-- Restart backend if legal embedding generation fails
-
 **Legal Performance Optimization**:
+- Choose appropriate models based on your use case
 - Adjust `CHUNK_SIZE` and `CHUNK_OVERLAP` for your legal document types
-- Increase `MAX_RETRIEVAL_RESULTS` for more comprehensive legal context
 - Monitor memory usage with large legal document collections
 
 ## 🛡️ Legal Security & Confidentiality
 
 - **Confidential Processing**: All legal documents processed locally with automatic cleanup
 - **No Persistent Storage**: Legal documents never stored permanently between sessions
-- **Secure API Keys**: Use environment variables for all sensitive legal configuration
+- **Secure API Keys**: Use environment variables for all sensitive configuration
+- **Hugging Face Privacy**: Requests to Hugging Face API follow their privacy policy
 - **Legal Disclaimers**: Always includes appropriate legal disclaimers in responses
 - **Attorney Consultation**: Consistently recommends consulting qualified attorneys
-- **Data Privacy**: Legal document content never leaves your local environment
 
 ## ⚠️ Legal Disclaimers
 
 ### Important Legal Notice
-This AI assistant provides general legal information and document analysis. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.
+This AI assistant provides general legal information and document analysis using Hugging Face AI models. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.
 
 ### What This Tool Does
-- Analyzes legal document content and structure
-- Explains legal concepts and terminology
-- Identifies key provisions and clauses
-- Provides general legal guidance and information
+- Analyzes legal document content and structure using advanced AI
+- Explains legal concepts and terminology with AI assistance
+- Identifies key provisions and clauses using machine learning
+- Provides general legal guidance and information through AI analysis
 
 ### What This Tool Does NOT Do
 - Provide specific legal advice for your situation
 - Replace the need for qualified legal counsel
-- Guarantee legal accuracy or completeness
 - Create attorney-client privilege
+- Guarantee legal accuracy or completeness
 
 ### Recommendations
 - Always consult with a qualified attorney for specific legal advice
 - Use this tool as a starting point for legal document analysis
-- Verify all legal information with appropriate legal professionals
+- Verify all AI-generated legal information with appropriate legal professionals
 - Consider the limitations of AI in complex legal matters
 
 ## 🤝 Contributing
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes with legal considerations
+3. Make your changes with Hugging Face considerations
 4. Add tests if applicable
 5. Submit a pull request
 
@@ -294,13 +338,15 @@ This AI assistant provides general legal information and document analysis. It d
 MIT License - see LICENSE file for details
 
 ## 🆘 Legal Support
-For legal AI issues and questions:
-1. Check the legal troubleshooting section above
-2. Review the legal API documentation
-3. Create an issue on GitHub with detailed information about your legal AI problem
+For Hugging Face legal AI issues and questions:
+1. Check the Hugging Face troubleshooting section above
+2. Review the Hugging Face API documentation
+3. Create an issue on GitHub with detailed information about your problem
 
 ---
 
-**⚖️ Get started by uploading your first legal PDF document and asking legal questions about its content! Legal AI analysis is always enabled for expert legal guidance, and everything is automatically cleared when you're done to maintain confidentiality.**
+**⚖️ Get started by uploading your first legal PDF document and asking legal questions! Hugging Face AI analysis is always enabled for expert legal guidance, and everything is automatically cleared when you're done to maintain confidentiality.**
+
+**🤖 Powered by Hugging Face**: Access to state-of-the-art language models for superior legal analysis.
 
 **Remember: This tool provides legal information, not legal advice. Always consult with a qualified attorney for specific legal matters.**

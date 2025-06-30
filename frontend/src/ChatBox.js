@@ -4,6 +4,8 @@ const ChatBox = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [availableModels, setAvailableModels] = useState([]);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -14,11 +16,29 @@ const ChatBox = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Fetch available models on component mount
+  useEffect(() => {
+    fetchAvailableModels();
+  }, []);
+
+  const fetchAvailableModels = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/models');
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableModels(data.available_models || []);
+        setSelectedModel(data.current_model || '');
+      }
+    } catch (error) {
+      console.error('Error fetching models:', error);
+    }
+  };
+
   // Add a welcome message when the component mounts
   useEffect(() => {
     const welcomeMessage = {
       role: 'assistant',
-      content: 'Welcome to your Legal AI Assistant! I\'m here to help you analyze legal documents and answer legal questions. Upload PDF legal documents using the sidebar, and I\'ll provide expert legal analysis based on your materials.\n\n⚠️ **Important Legal Disclaimer**: This AI assistant provides general legal information and document analysis. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.',
+      content: 'Welcome to your Legal AI Assistant powered by Hugging Face! I\'m here to help you analyze legal documents and answer legal questions using advanced AI models. Upload PDF legal documents using the sidebar, and I\'ll provide expert legal analysis based on your materials.\n\n🤖 **Powered by Hugging Face**: Access to state-of-the-art language models for legal analysis.\n\n⚠️ **Important Legal Disclaimer**: This AI assistant provides general legal information and document analysis. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.',
       isWelcome: true
     };
     setMessages([welcomeMessage]);
@@ -40,7 +60,8 @@ const ChatBox = () => {
         },
         body: JSON.stringify({
           prompt: input,
-          use_rag: true // Always use RAG for legal analysis
+          use_rag: true, // Always use RAG for legal analysis
+          model: selectedModel || undefined
         }),
       });
 
@@ -50,7 +71,7 @@ const ChatBox = () => {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = { role: 'assistant', content: '', sources: [] };
+      let assistantMessage = { role: 'assistant', content: '', sources: [], model: '' };
       
       setMessages(prev => [...prev, assistantMessage]);
 
@@ -70,6 +91,10 @@ const ChatBox = () => {
               // Extract source information
               const contextInfo = data.replace('[CONTEXT] Using legal information from: ', '');
               assistantMessage.sources = contextInfo.split(', ');
+            } else if (data.startsWith('[MODEL]')) {
+              // Extract model information
+              const modelInfo = data.replace('[MODEL] Using Hugging Face model: ', '');
+              assistantMessage.model = modelInfo;
             } else if (data.startsWith('[ERROR]')) {
               assistantMessage.content += `Error: ${data.replace('[ERROR] ', '')}`;
             } else if (data.trim()) {
@@ -88,7 +113,7 @@ const ChatBox = () => {
       console.error('Error sending message:', error);
       const errorMessage = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please make sure the backend server is running on http://localhost:8000',
+        content: 'Sorry, I encountered an error. Please make sure the backend server is running on http://localhost:8000 and your Hugging Face API key is configured.',
         error: true
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -119,16 +144,39 @@ const ChatBox = () => {
         <h3>⚖️ Legal Document Analysis</h3>
         <div className="legal-status">
           <span className="status-indicator legal-enabled">
-            🧠 Legal AI Analysis Active
+            🤖 Hugging Face AI Active
           </span>
         </div>
       </div>
+
+      {availableModels.length > 0 && (
+        <div className="model-selector">
+          <label htmlFor="model-select">🤖 AI Model:</label>
+          <select
+            id="model-select"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            disabled={isLoading}
+          >
+            {availableModels.map((model) => (
+              <option key={model} value={model}>
+                {model.split('/').pop()} {model === selectedModel ? '(current)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       
       <div className="messages">
         {messages.map((message, index) => (
           <div key={index} className={`message ${message.role} ${message.isWelcome ? 'welcome' : ''}`}>
             <div className="message-content">
               {message.content}
+              {message.model && (
+                <div className="model-info">
+                  <strong>🤖 Model:</strong> {message.model}
+                </div>
+              )}
               {message.sources && message.sources.length > 0 && (
                 <div className="sources">
                   <strong>📚 Legal Sources Referenced:</strong>
@@ -150,7 +198,7 @@ const ChatBox = () => {
                 <span></span>
                 <span></span>
               </div>
-              Analyzing legal documents...
+              Analyzing with Hugging Face AI...
             </div>
           </div>
         )}
@@ -186,7 +234,7 @@ const ChatBox = () => {
         />
         <button onClick={sendMessage} disabled={isLoading || !input.trim()}>
           <span>Analyze</span>
-          <span className="send-icon">⚖️</span>
+          <span className="send-icon">🤖</span>
         </button>
       </div>
 
@@ -206,7 +254,7 @@ const ChatBox = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 20px;
+          margin-bottom: 15px;
           padding-bottom: 15px;
           border-bottom: 2px solid #e9ecef;
         }
@@ -235,6 +283,38 @@ const ChatBox = () => {
           color: #155724;
           border-color: #28a745;
           box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+        }
+
+        .model-selector {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 15px;
+          padding: 10px;
+          background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+          border-radius: 8px;
+          border: 1px solid #dee2e6;
+        }
+
+        .model-selector label {
+          font-weight: 600;
+          color: #495057;
+          font-size: 0.9rem;
+        }
+
+        .model-selector select {
+          flex: 1;
+          padding: 6px 10px;
+          border: 1px solid #ced4da;
+          border-radius: 4px;
+          font-size: 0.85rem;
+          background-color: white;
+        }
+
+        .model-selector select:focus {
+          outline: none;
+          border-color: #1e3a8a;
+          box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.25);
         }
 
         .messages {
@@ -305,6 +385,14 @@ const ChatBox = () => {
         @keyframes typing {
           0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
           40% { transform: scale(1); opacity: 1; }
+        }
+
+        .model-info {
+          margin-top: 8px;
+          padding-top: 8px;
+          border-top: 1px solid #dee2e6;
+          font-size: 0.8em;
+          color: #6c757d;
         }
 
         .sources {

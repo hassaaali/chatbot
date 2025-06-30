@@ -1,7 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-import httpx
 import json
 import logging
 import gc
@@ -19,6 +18,7 @@ from services.document_processor import DocumentProcessor
 from services.vector_store import VectorStore
 from services.rag_service import RAGService
 from services.file_upload_service import FileUploadService
+from services.huggingface_client import HuggingFaceClient
 
 # Configure logging
 logging.basicConfig(
@@ -34,7 +34,7 @@ try:
 except Exception as e:
     logger.warning(f"Configuration validation failed: {e}")
 
-app = FastAPI(title="Legal RAG-Enhanced PDF Chatbot API", version="1.0.0")
+app = FastAPI(title="Legal RAG-Enhanced PDF Chatbot API (Hugging Face)", version="1.0.0")
 
 # Configure CORS
 app.add_middleware(
@@ -50,6 +50,7 @@ document_processor = None
 vector_store = None
 rag_service = None
 file_upload_service = None
+huggingface_client = None
 
 def cleanup_cache():
     """Clean up cache and temporary files on application shutdown"""
@@ -112,6 +113,10 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 try:
+    # Initialize Hugging Face client
+    huggingface_client = HuggingFaceClient()
+    logger.info("Hugging Face client initialized")
+    
     # Initialize document processor with optimized settings
     document_processor = DocumentProcessor(Config.CHUNK_SIZE, Config.CHUNK_OVERLAP)
     logger.info("Document processor initialized")
@@ -137,6 +142,7 @@ except Exception as e:
 class PromptRequest(BaseModel):
     prompt: str
     use_rag: bool = True
+    model: Optional[str] = None
 
 class DocumentResponse(BaseModel):
     success: bool
@@ -145,18 +151,37 @@ class DocumentResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "Legal RAG-Enhanced PDF Chatbot API", "version": "1.0.0"}
+    return {"message": "Legal RAG-Enhanced PDF Chatbot API (Hugging Face)", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
         "model": Config.LLM_MODEL,
+        "api_provider": "Hugging Face",
         "services": {
             "rag": rag_service is not None,
             "vector_store": vector_store is not None,
             "document_processor": document_processor is not None,
-            "file_upload": file_upload_service is not None
+            "file_upload": file_upload_service is not None,
+            "huggingface": huggingface_client is not None
+        }
+    }
+
+@app.get("/models")
+async def get_available_models():
+    """Get list of available Hugging Face models for legal analysis"""
+    if not huggingface_client:
+        raise HTTPException(status_code=503, detail="Hugging Face client not available")
+    
+    return {
+        "current_model": Config.LLM_MODEL,
+        "available_models": huggingface_client.get_available_models(),
+        "model_descriptions": {
+            "microsoft/DialoGPT-large": "Large conversational model, good for legal Q&A",
+            "google/flan-t5-large": "Instruction-following model, excellent for legal analysis",
+            "facebook/blenderbot-400M-distill": "Balanced model for legal document discussion",
+            "microsoft/GODEL-v1_1-large-seq2seq": "Goal-oriented model for legal guidance"
         }
     }
 
@@ -234,6 +259,8 @@ async def get_system_stats():
     
     try:
         stats = rag_service.get_system_stats()
+        stats["api_provider"] = "Hugging Face"
+        stats["current_model"] = Config.LLM_MODEL
         return stats
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
@@ -257,9 +284,13 @@ async def clear_all_documents():
 async def stream_chat(prompt_request: PromptRequest, request: Request):
     prompt = prompt_request.prompt.strip()
     use_rag = prompt_request.use_rag
+    model = prompt_request.model or Config.LLM_MODEL
     
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
+
+    if not huggingface_client:
+        raise HTTPException(status_code=503, detail="Hugging Face client not available")
 
     # Enhance prompt with RAG if enabled and available
     enhanced_prompt = prompt
@@ -288,72 +319,36 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
             enhanced_prompt = rag_service._generate_legal_prompt_without_context(prompt)
 
     async def event_generator():
-        buffer = ""
         try:
             # Send context information first if available
             if context_info:
                 yield f"data: [CONTEXT] Using legal information from: {', '.join(context_info['sources'])}\n\n"
             
-            # Check if Together API key is available
-            if not Config.TOGETHER_API_KEY:
-                yield f"data: [ERROR] Together AI API key not configured. Please set TOGETHER_API_KEY in your environment.\n\n"
+            # Check if Hugging Face API key is available
+            if not Config.HUGGINGFACE_API_KEY:
+                yield f"data: [ERROR] Hugging Face API key not configured. Please set HUGGINGFACE_API_KEY in your environment.\n\n"
                 return
             
-            async with httpx.AsyncClient(timeout=120.0) as client:  # Increased timeout
-                async with client.stream(
-                    "POST",
-                    "https://api.together.xyz/inference",
-                    headers={"Authorization": f"Bearer {Config.TOGETHER_API_KEY}"},
-                    json={
-                        "model": Config.LLM_MODEL,
-                        "prompt": enhanced_prompt,
-                        "stream": True,
-                        "max_tokens": Config.LLM_MAX_TOKENS,
-                        "temperature": Config.LLM_TEMPERATURE,
-                        "top_p": Config.LLM_TOP_P
-                    }
-                ) as response:
-                    if response.status_code != 200:
-                        logger.error(f"Together API error: {response.status_code}")
-                        error_text = await response.atext()
-                        logger.error(f"Error details: {error_text}")
-                        yield f"data: [ERROR] API Error: {response.status_code}\n\n"
-                        return
-                    
-                    async for line in response.aiter_lines():
-                        if line.startswith("data:"):
-                            content = line[5:].strip()
-                            if content and content != "[DONE]":
-                                try:
-                                    data = json.loads(content)
-                                    choices = data.get("choices", [])
-                                    if choices:
-                                        text = choices[0].get("text", "")
-                                        if text:
-                                            buffer += text
-                                            # Split buffer by meaningful separators
-                                            lines = buffer.split("\n")
-                                            buffer = lines[-1]
-                                            for line in lines[:-1]:
-                                                if line.strip():
-                                                    yield f"data: {line.strip()}\n\n"
-                                except Exception as e:
-                                    logger.warning(f"Could not parse chunk: {content} ({e})")
+            # Send model information
+            yield f"data: [MODEL] Using Hugging Face model: {model}\n\n"
+            
+            # Stream response from Hugging Face
+            async for chunk in huggingface_client.generate_text_stream(enhanced_prompt, model):
+                if chunk.startswith("[ERROR]"):
+                    yield f"data: {chunk}\n\n"
+                    return
+                
+                if chunk.strip():
+                    yield f"data: {chunk}\n\n"
+                
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    logger.info("Client disconnected, stopping stream")
+                    break
                         
-                        if await request.is_disconnected():
-                            logger.info("Client disconnected, stopping stream")
-                            break
-                    
-                    # Yield any remaining buffer content
-                    if buffer.strip():
-                        yield f"data: {buffer.strip()}\n\n"
-                        
-        except httpx.RequestError as e:
-            logger.error(f"Network error: {e}")
-            yield f"data: [ERROR] Network error occurred\n\n"
         except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            yield f"data: [ERROR] Internal server error\n\n"
+            logger.error(f"Unexpected error in stream: {e}")
+            yield f"data: [ERROR] Internal server error: {str(e)}\n\n"
         finally:
             # Force garbage collection after streaming
             gc.collect()
