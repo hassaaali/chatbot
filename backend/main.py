@@ -4,6 +4,7 @@ from fastapi.responses import StreamingResponse
 import json
 import logging
 import gc
+import psutil
 from pydantic import BaseModel
 from typing import Optional, List
 import os
@@ -20,7 +21,7 @@ from services.rag_service import RAGService
 from services.file_upload_service import FileUploadService
 from services.huggingface_client import HuggingFaceClient
 
-# Configure logging
+# Configure logging with more detail
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -113,23 +114,35 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 try:
+    # Check system memory before initialization
+    memory = psutil.virtual_memory()
+    logger.info(f"System memory: {memory.percent}% used, {memory.available / (1024**3):.2f} GB available")
+    
+    if memory.percent > 70:
+        logger.warning("High memory usage detected, using minimal configuration")
+    
     # Initialize Hugging Face client
+    logger.info("Initializing Hugging Face client...")
     huggingface_client = HuggingFaceClient()
     logger.info("Hugging Face client initialized")
     
     # Initialize document processor with optimized settings
+    logger.info("Initializing document processor...")
     document_processor = DocumentProcessor(Config.CHUNK_SIZE, Config.CHUNK_OVERLAP)
     logger.info("Document processor initialized")
     
     # Initialize vector store with memory optimization
+    logger.info("Initializing vector store...")
     vector_store = VectorStore(Config.CHROMA_DB_PATH, Config.EMBEDDING_MODEL)
     logger.info("Vector store initialized")
     
     # Initialize RAG service
+    logger.info("Initializing RAG service...")
     rag_service = RAGService(vector_store, document_processor)
     logger.info("RAG service initialized")
     
     # Initialize file upload service with reduced file size limit
+    logger.info("Initializing file upload service...")
     file_upload_service = FileUploadService(Config.MAX_FILE_SIZE)
     logger.info("File upload service initialized")
     
@@ -155,10 +168,13 @@ async def root():
 
 @app.get("/health")
 async def health_check():
+    memory = psutil.virtual_memory()
     return {
         "status": "healthy",
         "model": Config.LLM_MODEL,
         "api_provider": "Hugging Face",
+        "memory_usage_percent": memory.percent,
+        "available_memory_gb": memory.available / (1024**3),
         "services": {
             "rag": rag_service is not None,
             "vector_store": vector_store is not None,
@@ -178,10 +194,10 @@ async def get_available_models():
         "current_model": Config.LLM_MODEL,
         "available_models": huggingface_client.get_available_models(),
         "model_descriptions": {
-            "microsoft/DialoGPT-large": "Large conversational model, good for legal Q&A",
-            "google/flan-t5-large": "Instruction-following model, excellent for legal analysis",
+            "microsoft/DialoGPT-medium": "Medium conversational model, good for legal Q&A (memory optimized)",
+            "google/flan-t5-base": "Base instruction-following model, good for legal analysis",
             "facebook/blenderbot-400M-distill": "Balanced model for legal document discussion",
-            "microsoft/GODEL-v1_1-large-seq2seq": "Goal-oriented model for legal guidance"
+            "microsoft/GODEL-v1_1-base-seq2seq": "Goal-oriented model for legal guidance"
         }
     }
 
@@ -197,8 +213,8 @@ async def upload_pdf(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None)
 ) -> DocumentResponse:
-    """Upload a PDF file directly to the RAG system"""
-    logger.info(f"Received file upload request: {file.filename}")
+    """Upload a PDF file directly to the RAG system with detailed logging"""
+    logger.info(f"=== STARTING PDF UPLOAD: {file.filename} ===")
     
     if not file_upload_service:
         raise HTTPException(status_code=503, detail="File upload service not available")
@@ -207,17 +223,35 @@ async def upload_pdf(
         raise HTTPException(status_code=503, detail="RAG service not available")
     
     try:
-        # Process the uploaded PDF with memory optimization
-        logger.info("Processing uploaded PDF...")
-        document = await file_upload_service.process_uploaded_pdf(file, title)
-        logger.info("PDF processing completed, adding to RAG system...")
+        # Check memory before starting
+        memory = psutil.virtual_memory()
+        logger.info(f"Memory before upload: {memory.percent}% used, {memory.available / (1024**3):.2f} GB available")
         
-        # Add to RAG system
+        if memory.percent > 75:
+            raise HTTPException(status_code=507, detail=f"Insufficient memory ({memory.percent}% used). Please try again later.")
+        
+        # Process the uploaded PDF with memory optimization
+        logger.info("=== STEP 1: Processing uploaded PDF ===")
+        document = await file_upload_service.process_uploaded_pdf(file, title)
+        logger.info("=== STEP 1 COMPLETED: PDF processing completed ===")
+        
+        # Check memory after PDF processing
+        memory_after_pdf = psutil.virtual_memory()
+        logger.info(f"Memory after PDF processing: {memory_after_pdf.percent}% used")
+        
+        # Add to RAG system with detailed logging
+        logger.info("=== STEP 2: Adding to RAG system ===")
         rag_service.add_document(document)
-        logger.info("Document added to RAG system successfully")
+        logger.info("=== STEP 2 COMPLETED: Document added to RAG system successfully ===")
         
         # Force garbage collection after processing
         gc.collect()
+        
+        # Final memory check
+        final_memory = psutil.virtual_memory()
+        logger.info(f"Final memory usage: {final_memory.percent}% used")
+        
+        logger.info(f"=== UPLOAD COMPLETED SUCCESSFULLY: {file.filename} ===")
         
         return DocumentResponse(
             success=True,
@@ -232,7 +266,7 @@ async def upload_pdf(
             }
         )
     except Exception as e:
-        logger.error(f"Error uploading PDF: {e}")
+        logger.error(f"=== UPLOAD FAILED: {file.filename} - Error: {e} ===")
         # Force garbage collection on error
         gc.collect()
         raise HTTPException(status_code=500, detail=f"Failed to upload PDF: {str(e)}")
@@ -313,7 +347,7 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
                 logger.info(f"Enhanced legal prompt with {len(context_results)} context results")
             else:
                 # Use legal-specific prompt even without context
-                enhanced_prompt = rag_service.generate_rag_prompt(prompt, [])
+                enhanced_prompt = rag_service._generate_legal_prompt_without_context(prompt)
         except Exception as e:
             logger.warning(f"RAG enhancement failed, using legal prompt without context: {e}")
             enhanced_prompt = rag_service._generate_legal_prompt_without_context(prompt)
