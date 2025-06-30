@@ -10,8 +10,6 @@ import os
 import asyncio
 
 from config import Config
-from services.google_drive_service import GoogleDriveService
-from services.drive_sync_service import DriveSyncService
 from services.document_processor import DocumentProcessor
 from services.vector_store import VectorStore
 from services.rag_service import RAGService
@@ -42,9 +40,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# Initialize core services (always available)
-google_drive_service = None
-drive_sync_service = None
+# Initialize core services
 document_processor = None
 vector_store = None
 rag_service = None
@@ -67,39 +63,20 @@ try:
     file_upload_service = FileUploadService()
     logger.info("File upload service initialized")
     
-    # Note: Google services are NOT initialized automatically
-    logger.info("Core services initialized successfully. Google Drive services will be initialized on user request.")
+    logger.info("All services initialized successfully")
         
 except Exception as e:
-    logger.error(f"Failed to initialize core services: {e}")
+    logger.error(f"Failed to initialize services: {e}")
 
 # Pydantic models
 class PromptRequest(BaseModel):
     prompt: str
     use_rag: bool = True
 
-class DocumentRequest(BaseModel):
-    document_id: str
-    title: Optional[str] = None
-
-class FolderSyncRequest(BaseModel):
-    folder_id: Optional[str] = None
-    force_full_sync: bool = False
-
 class DocumentResponse(BaseModel):
     success: bool
     message: str
     document_info: Optional[dict] = None
-
-class SyncResponse(BaseModel):
-    success: bool
-    message: str
-    stats: Optional[dict] = None
-
-class GoogleDriveStatusResponse(BaseModel):
-    authenticated: bool
-    credentials_available: bool
-    message: str
 
 @app.get("/")
 async def root():
@@ -110,109 +87,12 @@ async def health_check():
     return {
         "status": "healthy",
         "services": {
-            "google_drive": google_drive_service is not None,
-            "drive_sync": drive_sync_service is not None,
             "rag": rag_service is not None,
             "vector_store": vector_store is not None,
             "document_processor": document_processor is not None,
             "file_upload": file_upload_service is not None
         }
     }
-
-# Google Drive authentication endpoints
-@app.get("/google-drive/status")
-async def get_google_drive_status() -> GoogleDriveStatusResponse:
-    """Check Google Drive authentication status"""
-    credentials_available = os.path.exists(Config.GOOGLE_CREDENTIALS_PATH)
-    authenticated = google_drive_service is not None
-    
-    if not credentials_available:
-        return GoogleDriveStatusResponse(
-            authenticated=False,
-            credentials_available=False,
-            message="Google Drive credentials not found. Please add credentials.json to enable Google Drive features."
-        )
-    elif not authenticated:
-        return GoogleDriveStatusResponse(
-            authenticated=False,
-            credentials_available=True,
-            message="Google Drive credentials available but not authenticated. Click 'Connect to Google Drive' to authenticate."
-        )
-    else:
-        return GoogleDriveStatusResponse(
-            authenticated=True,
-            credentials_available=True,
-            message="Google Drive is connected and ready to use."
-        )
-
-@app.post("/google-drive/connect")
-async def connect_google_drive():
-    """Initialize Google Drive connection with user authentication"""
-    global google_drive_service, drive_sync_service
-    
-    if not os.path.exists(Config.GOOGLE_CREDENTIALS_PATH):
-        raise HTTPException(
-            status_code=400,
-            detail="Google Drive credentials file not found. Please add credentials.json to the backend directory."
-        )
-    
-    try:
-        logger.info("User requested Google Drive connection - initializing services...")
-        
-        # Initialize Google Drive service (this will trigger OAuth flow)
-        google_drive_service = GoogleDriveService(Config.GOOGLE_CREDENTIALS_PATH)
-        logger.info("Google Drive service initialized successfully")
-        
-        # Initialize Drive Sync service
-        drive_sync_service = DriveSyncService(
-            google_drive_service, 
-            rag_service, 
-            Config.DRIVE_SYNC_INTERVAL_HOURS
-        )
-        logger.info("Drive Sync service initialized successfully")
-        
-        return {
-            "success": True,
-            "message": "Successfully connected to Google Drive! You can now use Google Drive features."
-        }
-        
-    except Exception as e:
-        logger.error(f"Failed to connect to Google Drive: {e}")
-        # Reset services if initialization failed
-        google_drive_service = None
-        drive_sync_service = None
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to connect to Google Drive: {str(e)}"
-        )
-
-@app.post("/google-drive/disconnect")
-async def disconnect_google_drive():
-    """Disconnect Google Drive services"""
-    global google_drive_service, drive_sync_service
-    
-    try:
-        # Remove token file to force re-authentication next time
-        token_path = 'token.pickle'
-        if os.path.exists(token_path):
-            os.remove(token_path)
-            logger.info("Removed Google Drive authentication token")
-        
-        # Reset services
-        google_drive_service = None
-        drive_sync_service = None
-        
-        return {
-            "success": True,
-            "message": "Disconnected from Google Drive. You can reconnect anytime."
-        }
-        
-    except Exception as e:
-        logger.error(f"Error disconnecting Google Drive: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to disconnect Google Drive: {str(e)}"
-        )
 
 # File upload endpoints
 @app.post("/documents/upload")
@@ -255,154 +135,6 @@ async def upload_pdf(
         logger.error(f"Error uploading PDF: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to upload PDF: {str(e)}")
 
-# Individual document management (requires Google Drive connection)
-@app.post("/documents/add")
-async def add_document(request: DocumentRequest) -> DocumentResponse:
-    """Add a single PDF document from Google Drive to the RAG system"""
-    if not google_drive_service:
-        raise HTTPException(
-            status_code=503, 
-            detail="Google Drive not connected. Please connect to Google Drive first using the 'Connect to Google Drive' button."
-        )
-    
-    if not rag_service:
-        raise HTTPException(status_code=503, detail="RAG service not available")
-    
-    try:
-        # Retrieve document from Google Drive
-        document = google_drive_service.get_document_content(request.document_id)
-        
-        # Override title if provided
-        if request.title:
-            document['title'] = request.title
-        
-        # Add to RAG system
-        rag_service.add_document(document)
-        
-        return DocumentResponse(
-            success=True,
-            message=f"Successfully added PDF document '{document['title']}'",
-            document_info={
-                "title": document['title'],
-                "document_id": document['id'],
-                "content_length": len(document['content']),
-                "file_size": document.get('size', 0),
-                "source": "google_drive"
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error adding document: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to add document: {str(e)}")
-
-# Drive folder management endpoints (requires Google Drive connection)
-@app.post("/drive/sync")
-async def sync_drive_folder(request: FolderSyncRequest, background_tasks: BackgroundTasks) -> SyncResponse:
-    """Sync PDF documents from a Google Drive folder"""
-    if not drive_sync_service:
-        raise HTTPException(
-            status_code=503,
-            detail="Google Drive not connected. Please connect to Google Drive first using the 'Connect to Google Drive' button."
-        )
-    
-    try:
-        logger.info(f"Starting sync request: folder_id={request.folder_id}, force_full_sync={request.force_full_sync}")
-        
-        # Run sync in background for large folders or full syncs
-        if request.force_full_sync:
-            background_tasks.add_task(
-                drive_sync_service.sync_folder,
-                request.folder_id,
-                request.force_full_sync
-            )
-            return SyncResponse(
-                success=True,
-                message="Full sync started in background. Check /drive/sync/status for progress."
-            )
-        else:
-            # Quick sync in foreground
-            stats = await drive_sync_service.sync_folder(request.folder_id, request.force_full_sync)
-            return SyncResponse(
-                success=True,
-                message=f"Sync completed: {stats['added']} added, {stats['updated']} updated, {stats['skipped']} skipped, {stats['errors']} errors",
-                stats=stats
-            )
-    except Exception as e:
-        logger.error(f"Error syncing Drive folder: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to sync folder: {str(e)}")
-
-@app.get("/drive/sync/status")
-async def get_sync_status():
-    """Get current sync status"""
-    if not drive_sync_service:
-        raise HTTPException(
-            status_code=503, 
-            detail="Google Drive not connected. Please connect to Google Drive first."
-        )
-    
-    return drive_sync_service.get_sync_status()
-
-@app.post("/drive/scan")
-async def scan_drive_folder(folder_id: Optional[str] = None):
-    """Scan a Drive folder for PDF documents without syncing (preview what would be synced)"""
-    if not google_drive_service:
-        raise HTTPException(
-            status_code=503, 
-            detail="Google Drive not connected. Please connect to Google Drive first."
-        )
-    
-    try:
-        logger.info(f"Scanning folder: {folder_id or 'entire Drive'}")
-        documents = google_drive_service.scan_folder(folder_id, include_subfolders=True)
-        logger.info(f"Scan completed, found {len(documents)} documents")
-        
-        return {
-            "folder_id": folder_id,
-            "total_documents": len(documents),
-            "documents": [
-                {
-                    "id": doc["id"],
-                    "title": doc["title"],
-                    "url": doc["url"],
-                    "modified_time": doc.get("modified_time"),
-                    "size": doc.get("size", 0),
-                    "size_mb": round(doc.get("size", 0) / (1024 * 1024), 2)
-                }
-                for doc in documents[:50]  # Limit to first 50 for preview
-            ],
-            "showing_first": min(50, len(documents)),
-            "total_size_mb": round(sum(doc.get("size", 0) for doc in documents) / (1024 * 1024), 2)
-        }
-    except Exception as e:
-        logger.error(f"Error scanning Drive folder: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to scan folder: {str(e)}")
-
-@app.post("/drive/auto-sync")
-async def trigger_auto_sync(folder_id: Optional[str] = None):
-    """Trigger auto-sync if needed"""
-    if not drive_sync_service:
-        raise HTTPException(
-            status_code=503, 
-            detail="Google Drive not connected. Please connect to Google Drive first."
-        )
-    
-    try:
-        stats = await drive_sync_service.auto_sync_if_needed(folder_id)
-        if stats:
-            return SyncResponse(
-                success=True,
-                message="Auto-sync completed",
-                stats=stats
-            )
-        else:
-            return SyncResponse(
-                success=True,
-                message="No sync needed at this time"
-            )
-    except Exception as e:
-        logger.error(f"Error in auto-sync: {e}")
-        raise HTTPException(status_code=500, detail=f"Auto-sync failed: {str(e)}")
-
-# Existing endpoints (unchanged)
 @app.delete("/documents/{document_id}")
 async def delete_document(document_id: str):
     """Remove a document from the RAG system"""
@@ -424,11 +156,6 @@ async def get_system_stats():
     
     try:
         stats = rag_service.get_system_stats()
-        
-        # Add sync status if available
-        if drive_sync_service:
-            stats['sync_status'] = drive_sync_service.get_sync_status()
-        
         return stats
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
@@ -442,11 +169,6 @@ async def clear_all_documents():
     
     try:
         rag_service.clear_all_documents()
-        
-        # Also clear sync state if available
-        if drive_sync_service:
-            drive_sync_service.clear_sync_state()
-        
         return {"success": True, "message": "All documents cleared successfully"}
     except Exception as e:
         logger.error(f"Error clearing documents: {e}")
@@ -459,13 +181,6 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
     
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
-
-    # Auto-sync if needed (non-blocking)
-    if drive_sync_service:
-        try:
-            asyncio.create_task(drive_sync_service.auto_sync_if_needed())
-        except:
-            pass  # Don't fail chat if auto-sync fails
 
     # Enhance prompt with RAG if enabled and available
     enhanced_prompt = prompt

@@ -2,11 +2,9 @@ import React, { useState } from 'react';
 import './App.css';
 import ChatBox from './ChatBox';
 import DocumentManager from './components/DocumentManager';
-import DriveManager from './components/DriveManager';
 
 function App() {
   const [useRAG, setUseRAG] = useState(false);
-  const [activeTab, setActiveTab] = useState('drive'); // 'drive' or 'individual'
 
   return (
     <div className="App">
@@ -17,22 +15,7 @@ function App() {
       <main className="App-main">
         <div className="container">
           <div className="sidebar">
-            <div className="tab-selector">
-              <button 
-                className={activeTab === 'drive' ? 'active' : ''}
-                onClick={() => setActiveTab('drive')}
-              >
-                📁 Folder Sync
-              </button>
-              <button 
-                className={activeTab === 'individual' ? 'active' : ''}
-                onClick={() => setActiveTab('individual')}
-              >
-                📄 Individual PDFs
-              </button>
-            </div>
-            
-            {activeTab === 'drive' ? <DriveManager /> : <DocumentManager />}
+            <DocumentManager />
             
             <div className="rag-toggle">
               <label>
