@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const ChatBox = ({ useRAG }) => {
+const ChatBox = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -18,13 +18,11 @@ const ChatBox = ({ useRAG }) => {
   useEffect(() => {
     const welcomeMessage = {
       role: 'assistant',
-      content: useRAG 
-        ? 'Hello! I\'m your RAG-enhanced PDF chatbot. Upload some PDF documents using the sidebar, and I\'ll help you find information from them. RAG (Retrieval-Augmented Generation) is enabled by default to provide you with context-aware answers based on your documents.'
-        : 'Hello! I\'m your PDF chatbot. Upload some PDF documents using the sidebar and enable RAG to get context-aware answers based on your documents.',
+      content: 'Hello! I\'m your RAG-enhanced PDF chatbot. Upload some PDF documents using the sidebar, and I\'ll help you find information from them. RAG (Retrieval-Augmented Generation) is always enabled to provide you with the most accurate, context-aware answers based on your documents.',
       isWelcome: true
     };
     setMessages([welcomeMessage]);
-  }, [useRAG]);
+  }, []);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -42,7 +40,7 @@ const ChatBox = ({ useRAG }) => {
         },
         body: JSON.stringify({
           prompt: input,
-          use_rag: useRAG
+          use_rag: true // Always use RAG
         }),
       });
 
@@ -111,8 +109,8 @@ const ChatBox = ({ useRAG }) => {
       <div className="chat-header">
         <h3>💬 Chat with your PDFs</h3>
         <div className="rag-status">
-          <span className={`status-indicator ${useRAG ? 'enabled' : 'disabled'}`}>
-            {useRAG ? '🧠 RAG Enabled' : '❌ RAG Disabled'}
+          <span className="status-indicator enabled">
+            🧠 RAG Always Enabled
           </span>
         </div>
       </div>
@@ -154,7 +152,7 @@ const ChatBox = ({ useRAG }) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder={useRAG ? "Ask me anything about your uploaded PDFs..." : "Enable RAG to ask questions about your PDFs..."}
+          placeholder="Ask me anything about your uploaded PDFs..."
           disabled={isLoading}
           rows="3"
         />
@@ -192,23 +190,15 @@ const ChatBox = ({ useRAG }) => {
         }
 
         .status-indicator {
-          padding: 6px 12px;
-          border-radius: 20px;
-          font-size: 0.85rem;
-          font-weight: 600;
+          padding: 8px 16px;
+          border-radius: 25px;
+          font-size: 0.9rem;
+          font-weight: 700;
           border: 2px solid;
-        }
-
-        .status-indicator.enabled {
-          background-color: #d4edda;
+          background: linear-gradient(135deg, #d4edda, #c3e6cb);
           color: #155724;
-          border-color: #c3e6cb;
-        }
-
-        .status-indicator.disabled {
-          background-color: #f8d7da;
-          color: #721c24;
-          border-color: #f5c6cb;
+          border-color: #28a745;
+          box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
         }
 
         .messages {

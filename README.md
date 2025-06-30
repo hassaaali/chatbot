@@ -1,6 +1,6 @@
 # RAG-Enhanced PDF Chatbot
 
-A comprehensive RAG (Retrieval-Augmented Generation) chatbot that processes PDF documents to provide context-aware responses. Upload PDFs directly and get intelligent answers based on your document content with RAG enabled by default.
+A comprehensive RAG (Retrieval-Augmented Generation) chatbot that processes PDF documents to provide context-aware responses. Upload PDFs directly and get intelligent answers based on your document content with RAG always enabled for the best experience.
 
 ## 🚀 Features
 
@@ -10,7 +10,7 @@ A comprehensive RAG (Retrieval-Augmented Generation) chatbot that processes PDF 
 - **📚 Knowledge Base**: Persistent storage of processed documents with vector embeddings
 
 ### RAG Pipeline
-- **🧠 Context-aware Responses**: Get answers based on your uploaded PDF content (enabled by default)
+- **🧠 Always-On Context**: RAG is permanently enabled for the most accurate responses
 - **🔍 Semantic Search**: Advanced vector similarity search using embeddings
 - **📚 Source Attribution**: See which documents the chatbot references in responses
 - **⚡ Streaming Chat**: Real-time streaming responses for better user experience
@@ -108,11 +108,10 @@ Or start them separately:
 
 ### Using the Chatbot
 
-1. **RAG is Enabled by Default**: The chatbot automatically uses your uploaded PDF documents for context-aware responses
+1. **RAG is Always Enabled**: The chatbot automatically uses your uploaded PDF documents for context-aware responses
 2. **Ask Questions**: Type questions related to your uploaded PDF documents
 3. **View Sources**: The chatbot will show which documents it references in responses
-4. **Toggle RAG**: You can disable RAG if you want general responses without document context
-5. **Monitor Stats**: Check the knowledge base statistics to see indexed content
+4. **Monitor Stats**: Check the knowledge base statistics to see indexed content
 
 ## 🔧 Configuration
 
@@ -140,7 +139,7 @@ MAX_RETRIEVAL_RESULTS=5
 - `DELETE /documents/clear` - Clear all documents from knowledge base
 
 ### Chat Interface
-- `POST /chat/stream` - Chat with RAG enhancement and streaming responses
+- `POST /chat/stream` - Chat with RAG enhancement and streaming responses (always enabled)
 
 ### Health Check
 - `GET /health` - Check system health and service status
@@ -157,7 +156,7 @@ MAX_RETRIEVAL_RESULTS=5
 ### Frontend Components
 - **FileUploadManager**: Interface for direct PDF file uploads with drag-and-drop
 - **DocumentManager**: Interface for PDF document management and statistics
-- **ChatBox**: Streaming chat interface with enhanced UI and RAG status indicator
+- **ChatBox**: Streaming chat interface with RAG always enabled
 
 ## 📋 Supported File Types
 - **PDF Documents**: Primary supported format with advanced text extraction
@@ -207,4 +206,4 @@ For issues and questions:
 
 ---
 
-**Get started by uploading your first PDF document and asking questions about its content! RAG is enabled by default for the best experience.**
+**Get started by uploading your first PDF document and asking questions about its content! RAG is always enabled for the best experience.**
