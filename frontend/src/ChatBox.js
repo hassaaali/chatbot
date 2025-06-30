@@ -38,7 +38,7 @@ const ChatBox = () => {
   useEffect(() => {
     const welcomeMessage = {
       role: 'assistant',
-      content: 'Welcome to your Legal AI Assistant powered by Hugging Face! I\'m here to help you analyze legal documents and answer legal questions using advanced AI models. Upload PDF legal documents using the sidebar, and I\'ll provide expert legal analysis based on your materials.\n\n🤖 **Powered by Hugging Face**: Access to state-of-the-art language models for legal analysis.\n\n⚠️ **Important Legal Disclaimer**: This AI assistant provides general legal information and document analysis. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.',
+      content: 'Welcome to your Legal AI Assistant powered by Together AI! I\'m here to help you analyze legal documents and answer legal questions using advanced AI models. Upload PDF legal documents using the sidebar, and I\'ll provide expert legal analysis based on your materials.\n\n🤖 **Powered by Together AI**: Access to state-of-the-art language models including Llama 2, Mistral, and CodeLlama for legal analysis.\n\n⚠️ **Important Legal Disclaimer**: This AI assistant provides general legal information and document analysis. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.',
       isWelcome: true
     };
     setMessages([welcomeMessage]);
@@ -93,7 +93,7 @@ const ChatBox = () => {
               assistantMessage.sources = contextInfo.split(', ');
             } else if (data.startsWith('[MODEL]')) {
               // Extract model information
-              const modelInfo = data.replace('[MODEL] Using Hugging Face model: ', '');
+              const modelInfo = data.replace('[MODEL] Using Together AI model: ', '');
               assistantMessage.model = modelInfo;
             } else if (data.startsWith('[ERROR]')) {
               assistantMessage.content += `Error: ${data.replace('[ERROR] ', '')}`;
@@ -113,7 +113,7 @@ const ChatBox = () => {
       console.error('Error sending message:', error);
       const errorMessage = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please make sure the backend server is running on http://localhost:8000 and your Hugging Face API key is configured.',
+        content: 'Sorry, I encountered an error. Please make sure the backend server is running on http://localhost:8000 and your Together AI API key is configured.',
         error: true
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -144,7 +144,7 @@ const ChatBox = () => {
         <h3>⚖️ Legal Document Analysis</h3>
         <div className="legal-status">
           <span className="status-indicator legal-enabled">
-            🤖 Hugging Face AI Active
+            🤖 Together AI Active
           </span>
         </div>
       </div>
@@ -198,7 +198,7 @@ const ChatBox = () => {
                 <span></span>
                 <span></span>
               </div>
-              Analyzing with Hugging Face AI...
+              Analyzing with Together AI...
             </div>
           </div>
         )}

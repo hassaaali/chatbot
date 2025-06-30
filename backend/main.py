@@ -4,7 +4,6 @@ from fastapi.responses import StreamingResponse
 import json
 import logging
 import gc
-import psutil
 from pydantic import BaseModel
 from typing import Optional, List
 import os
@@ -19,9 +18,9 @@ from services.document_processor import DocumentProcessor
 from services.vector_store import VectorStore
 from services.rag_service import RAGService
 from services.file_upload_service import FileUploadService
-from services.huggingface_client import HuggingFaceClient
+from services.together_client import TogetherClient
 
-# Configure logging with more detail
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -35,7 +34,7 @@ try:
 except Exception as e:
     logger.warning(f"Configuration validation failed: {e}")
 
-app = FastAPI(title="Legal RAG-Enhanced PDF Chatbot API (Hugging Face)", version="1.0.0")
+app = FastAPI(title="Legal RAG-Enhanced PDF Chatbot API (Together AI)", version="1.0.0")
 
 # Configure CORS
 app.add_middleware(
@@ -51,7 +50,7 @@ document_processor = None
 vector_store = None
 rag_service = None
 file_upload_service = None
-huggingface_client = None
+together_client = None
 
 def cleanup_cache():
     """Clean up cache and temporary files on application shutdown"""
@@ -114,35 +113,23 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 try:
-    # Check system memory before initialization
-    memory = psutil.virtual_memory()
-    logger.info(f"System memory: {memory.percent}% used, {memory.available / (1024**3):.2f} GB available")
-    
-    if memory.percent > 70:
-        logger.warning("High memory usage detected, using minimal configuration")
-    
-    # Initialize Hugging Face client
-    logger.info("Initializing Hugging Face client...")
-    huggingface_client = HuggingFaceClient()
-    logger.info("Hugging Face client initialized")
+    # Initialize Together AI client
+    together_client = TogetherClient()
+    logger.info("Together AI client initialized")
     
     # Initialize document processor with optimized settings
-    logger.info("Initializing document processor...")
     document_processor = DocumentProcessor(Config.CHUNK_SIZE, Config.CHUNK_OVERLAP)
     logger.info("Document processor initialized")
     
     # Initialize vector store with memory optimization
-    logger.info("Initializing vector store...")
     vector_store = VectorStore(Config.CHROMA_DB_PATH, Config.EMBEDDING_MODEL)
     logger.info("Vector store initialized")
     
     # Initialize RAG service
-    logger.info("Initializing RAG service...")
     rag_service = RAGService(vector_store, document_processor)
     logger.info("RAG service initialized")
     
-    # Initialize file upload service with reduced file size limit
-    logger.info("Initializing file upload service...")
+    # Initialize file upload service
     file_upload_service = FileUploadService(Config.MAX_FILE_SIZE)
     logger.info("File upload service initialized")
     
@@ -164,40 +151,39 @@ class DocumentResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "Legal RAG-Enhanced PDF Chatbot API (Hugging Face)", "version": "1.0.0"}
+    return {"message": "Legal RAG-Enhanced PDF Chatbot API (Together AI)", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check():
-    memory = psutil.virtual_memory()
     return {
         "status": "healthy",
         "model": Config.LLM_MODEL,
-        "api_provider": "Hugging Face",
-        "memory_usage_percent": memory.percent,
-        "available_memory_gb": memory.available / (1024**3),
+        "api_provider": "Together AI",
         "services": {
             "rag": rag_service is not None,
             "vector_store": vector_store is not None,
             "document_processor": document_processor is not None,
             "file_upload": file_upload_service is not None,
-            "huggingface": huggingface_client is not None
+            "together_ai": together_client is not None
         }
     }
 
 @app.get("/models")
 async def get_available_models():
-    """Get list of available Hugging Face models for legal analysis"""
-    if not huggingface_client:
-        raise HTTPException(status_code=503, detail="Hugging Face client not available")
+    """Get list of available Together AI models for legal analysis"""
+    if not together_client:
+        raise HTTPException(status_code=503, detail="Together AI client not available")
     
     return {
         "current_model": Config.LLM_MODEL,
-        "available_models": huggingface_client.get_available_models(),
+        "available_models": together_client.get_available_models(),
         "model_descriptions": {
-            "microsoft/DialoGPT-medium": "Medium conversational model, good for legal Q&A (memory optimized)",
-            "google/flan-t5-base": "Base instruction-following model, good for legal analysis",
-            "facebook/blenderbot-400M-distill": "Balanced model for legal document discussion",
-            "microsoft/GODEL-v1_1-base-seq2seq": "Goal-oriented model for legal guidance"
+            "meta-llama/Llama-2-7b-chat-hf": "Llama 2 7B - Fast and efficient for legal Q&A",
+            "meta-llama/Llama-2-13b-chat-hf": "Llama 2 13B - Balanced performance for legal analysis",
+            "meta-llama/Llama-2-70b-chat-hf": "Llama 2 70B - Most capable for complex legal reasoning",
+            "mistralai/Mistral-7B-Instruct-v0.1": "Mistral 7B - Excellent instruction following for legal tasks",
+            "mistralai/Mixtral-8x7B-Instruct-v0.1": "Mixtral 8x7B - Advanced reasoning for legal documents",
+            "codellama/CodeLlama-7b-Instruct-hf": "Code Llama 7B - Good for legal logic and structured analysis"
         }
     }
 
@@ -213,8 +199,8 @@ async def upload_pdf(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None)
 ) -> DocumentResponse:
-    """Upload a PDF file directly to the RAG system with detailed logging"""
-    logger.info(f"=== STARTING PDF UPLOAD: {file.filename} ===")
+    """Upload a PDF file directly to the RAG system"""
+    logger.info(f"Received file upload request: {file.filename}")
     
     if not file_upload_service:
         raise HTTPException(status_code=503, detail="File upload service not available")
@@ -223,35 +209,17 @@ async def upload_pdf(
         raise HTTPException(status_code=503, detail="RAG service not available")
     
     try:
-        # Check memory before starting
-        memory = psutil.virtual_memory()
-        logger.info(f"Memory before upload: {memory.percent}% used, {memory.available / (1024**3):.2f} GB available")
-        
-        if memory.percent > 75:
-            raise HTTPException(status_code=507, detail=f"Insufficient memory ({memory.percent}% used). Please try again later.")
-        
         # Process the uploaded PDF with memory optimization
-        logger.info("=== STEP 1: Processing uploaded PDF ===")
+        logger.info("Processing uploaded PDF...")
         document = await file_upload_service.process_uploaded_pdf(file, title)
-        logger.info("=== STEP 1 COMPLETED: PDF processing completed ===")
+        logger.info("PDF processing completed, adding to RAG system...")
         
-        # Check memory after PDF processing
-        memory_after_pdf = psutil.virtual_memory()
-        logger.info(f"Memory after PDF processing: {memory_after_pdf.percent}% used")
-        
-        # Add to RAG system with detailed logging
-        logger.info("=== STEP 2: Adding to RAG system ===")
+        # Add to RAG system
         rag_service.add_document(document)
-        logger.info("=== STEP 2 COMPLETED: Document added to RAG system successfully ===")
+        logger.info("Document added to RAG system successfully")
         
         # Force garbage collection after processing
         gc.collect()
-        
-        # Final memory check
-        final_memory = psutil.virtual_memory()
-        logger.info(f"Final memory usage: {final_memory.percent}% used")
-        
-        logger.info(f"=== UPLOAD COMPLETED SUCCESSFULLY: {file.filename} ===")
         
         return DocumentResponse(
             success=True,
@@ -266,7 +234,7 @@ async def upload_pdf(
             }
         )
     except Exception as e:
-        logger.error(f"=== UPLOAD FAILED: {file.filename} - Error: {e} ===")
+        logger.error(f"Error uploading PDF: {e}")
         # Force garbage collection on error
         gc.collect()
         raise HTTPException(status_code=500, detail=f"Failed to upload PDF: {str(e)}")
@@ -293,7 +261,7 @@ async def get_system_stats():
     
     try:
         stats = rag_service.get_system_stats()
-        stats["api_provider"] = "Hugging Face"
+        stats["api_provider"] = "Together AI"
         stats["current_model"] = Config.LLM_MODEL
         return stats
     except Exception as e:
@@ -323,8 +291,8 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty")
 
-    if not huggingface_client:
-        raise HTTPException(status_code=503, detail="Hugging Face client not available")
+    if not together_client:
+        raise HTTPException(status_code=503, detail="Together AI client not available")
 
     # Enhance prompt with RAG if enabled and available
     enhanced_prompt = prompt
@@ -358,16 +326,16 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
             if context_info:
                 yield f"data: [CONTEXT] Using legal information from: {', '.join(context_info['sources'])}\n\n"
             
-            # Check if Hugging Face API key is available
-            if not Config.HUGGINGFACE_API_KEY:
-                yield f"data: [ERROR] Hugging Face API key not configured. Please set HUGGINGFACE_API_KEY in your environment.\n\n"
+            # Check if Together AI API key is available
+            if not Config.TOGETHER_API_KEY:
+                yield f"data: [ERROR] Together AI API key not configured. Please set TOGETHER_API_KEY in your environment.\n\n"
                 return
             
             # Send model information
-            yield f"data: [MODEL] Using Hugging Face model: {model}\n\n"
+            yield f"data: [MODEL] Using Together AI model: {model}\n\n"
             
-            # Stream response from Hugging Face
-            async for chunk in huggingface_client.generate_text_stream(enhanced_prompt, model):
+            # Stream response from Together AI
+            async for chunk in together_client.generate_text_stream(enhanced_prompt, model):
                 if chunk.startswith("[ERROR]"):
                     yield f"data: {chunk}\n\n"
                     return

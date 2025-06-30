@@ -61,7 +61,7 @@ function App() {
     <div className="App">
       <header className="App-header">
         <h1>⚖️ Legal AI Assistant</h1>
-        <p>Upload legal documents and get expert legal analysis and guidance</p>
+        <p>Upload legal documents and get expert legal analysis powered by Together AI</p>
       </header>
       <main className="App-main">
         <div className="container">

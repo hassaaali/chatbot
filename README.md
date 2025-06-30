@@ -1,6 +1,6 @@
-# ⚖️ Legal AI Assistant - RAG-Enhanced PDF Chatbot (Hugging Face)
+# ⚖️ Legal AI Assistant - RAG-Enhanced PDF Chatbot (Together AI)
 
-A comprehensive RAG (Retrieval-Augmented Generation) legal assistant powered by **Hugging Face** that processes legal PDF documents to provide expert legal analysis and guidance. Upload legal documents and get intelligent, context-aware legal advice using state-of-the-art AI models from Hugging Face. **Features automatic cache clearing when the application is closed to maintain confidentiality.**
+A comprehensive RAG (Retrieval-Augmented Generation) legal assistant powered by **Together AI** that processes legal PDF documents to provide expert legal analysis and guidance. Upload legal documents and get intelligent, context-aware legal advice using state-of-the-art AI models from Together AI. **Features automatic cache clearing when the application is closed to maintain confidentiality.**
 
 ## 🚀 Features
 
@@ -10,8 +10,8 @@ A comprehensive RAG (Retrieval-Augmented Generation) legal assistant powered by 
 - **📚 Legal Knowledge Base**: Persistent storage of processed legal documents with vector embeddings
 - **🗑️ Confidential Auto-cleanup**: Automatically clears all legal documents when application closes
 
-### Hugging Face AI Integration
-- **🤖 Multiple AI Models**: Choose from various Hugging Face models optimized for legal analysis
+### Together AI Integration
+- **🤖 Multiple AI Models**: Choose from various Together AI models optimized for legal analysis
 - **⚖️ Legal-Specialized Processing**: Custom prompts and processing designed for legal contexts
 - **🧠 Always-On Legal Context**: RAG permanently enabled for accurate legal guidance
 - **🔍 Legal Semantic Search**: Advanced vector similarity search for legal concepts
@@ -19,10 +19,12 @@ A comprehensive RAG (Retrieval-Augmented Generation) legal assistant powered by 
 - **⚡ Streaming Legal Analysis**: Real-time streaming responses for complex legal questions
 
 ### Available AI Models
-- **microsoft/DialoGPT-large**: Large conversational model, excellent for legal Q&A
-- **google/flan-t5-large**: Instruction-following model, superior for legal analysis
-- **facebook/blenderbot-400M-distill**: Balanced model for legal document discussion
-- **microsoft/GODEL-v1_1-large-seq2seq**: Goal-oriented model for legal guidance
+- **meta-llama/Llama-2-7b-chat-hf**: Llama 2 7B - Fast and efficient for legal Q&A
+- **meta-llama/Llama-2-13b-chat-hf**: Llama 2 13B - Balanced performance for legal analysis
+- **meta-llama/Llama-2-70b-chat-hf**: Llama 2 70B - Most capable for complex legal reasoning
+- **mistralai/Mistral-7B-Instruct-v0.1**: Mistral 7B - Excellent instruction following for legal tasks
+- **mistralai/Mixtral-8x7B-Instruct-v0.1**: Mixtral 8x7B - Advanced reasoning for legal documents
+- **codellama/CodeLlama-7b-Instruct-hf**: Code Llama 7B - Good for legal logic and structured analysis
 
 ### Legal Document Processing
 - **📄 Multi-method Legal Text Extraction**: Optimized for legal PDFs using pdfplumber and PyPDF2
@@ -38,13 +40,13 @@ A comprehensive RAG (Retrieval-Augmented Generation) legal assistant powered by 
 ## 🏗️ Project Structure
 
 ```
-├── backend/                 # Python FastAPI backend with Hugging Face integration
-│   ├── services/           # Legal RAG, Vector Store, PDF Processing, HF Client
-│   ├── main.py            # FastAPI application with Hugging Face streaming
-│   ├── config.py          # Hugging Face API configuration
+├── backend/                 # Python FastAPI backend with Together AI integration
+│   ├── services/           # Legal RAG, Vector Store, PDF Processing, Together AI Client
+│   ├── main.py            # FastAPI application with Together AI streaming
+│   ├── config.py          # Together AI API configuration
 │   └── requirements.txt   # Python dependencies
 ├── frontend/              # React frontend with model selection
-│   ├── src/              # React components with Hugging Face integration
+│   ├── src/              # React components with Together AI integration
 │   └── package.json      # Node.js dependencies
 └── README.md             # This file
 ```
@@ -54,7 +56,7 @@ A comprehensive RAG (Retrieval-Augmented Generation) legal assistant powered by 
 ### Prerequisites
 - Python 3.8+
 - Node.js 14+
-- **Hugging Face API key** (free at [huggingface.co](https://huggingface.co))
+- **Together AI API key** (get one at [together.ai](https://together.ai))
 
 ### Installation
 
@@ -76,21 +78,21 @@ A comprehensive RAG (Retrieval-Augmented Generation) legal assistant powered by 
 
 2. **Configure environment:**
    - Copy `backend/.env.example` to `backend/.env`
-   - Add your Hugging Face API key:
+   - Add your Together AI API key:
    ```env
-   HUGGINGFACE_API_KEY=your_huggingface_api_key_here
-   LLM_MODEL=microsoft/DialoGPT-large
+   TOGETHER_API_KEY=your_together_api_key_here
+   LLM_MODEL=meta-llama/Llama-2-7b-chat-hf
    LLM_TEMPERATURE=0.1
    LLM_MAX_TOKENS=2000
    LLM_TOP_P=0.9
    ```
 
-### Getting Your Hugging Face API Key
+### Getting Your Together AI API Key
 
-1. Go to [huggingface.co](https://huggingface.co) and create a free account
-2. Navigate to your [Settings > Access Tokens](https://huggingface.co/settings/tokens)
-3. Create a new token with "Read" permissions
-4. Copy the token and add it to your `.env` file
+1. Go to [together.ai](https://together.ai) and create an account
+2. Navigate to your [API Keys](https://api.together.xyz/settings/api-keys) section
+3. Create a new API key
+4. Copy the key and add it to your `.env` file
 
 ### Running the Legal AI Assistant
 
@@ -129,11 +131,13 @@ npm run cleanup
 
 ### Selecting AI Models
 
-1. **Model Selection**: Use the dropdown in the chat interface to select different Hugging Face models
+1. **Model Selection**: Use the dropdown in the chat interface to select different Together AI models
 2. **Recommended Models**:
-   - **DialoGPT-large**: Best for conversational legal analysis
-   - **flan-t5-large**: Excellent for instruction-following and legal reasoning
-   - **GODEL**: Goal-oriented responses for specific legal guidance
+   - **Llama-2-7b-chat-hf**: Fast and efficient for general legal Q&A
+   - **Llama-2-13b-chat-hf**: Balanced performance for detailed legal analysis
+   - **Llama-2-70b-chat-hf**: Most capable for complex legal reasoning
+   - **Mistral-7B-Instruct-v0.1**: Excellent for instruction-following legal tasks
+   - **Mixtral-8x7B-Instruct-v0.1**: Advanced reasoning for complex legal documents
 
 ### Adding Legal Documents
 
@@ -146,13 +150,13 @@ npm run cleanup
 
 2. **Supported Legal Files**
    - PDF format only
-   - Maximum file size: 10MB (optimized for performance)
+   - Maximum file size: 10MB
    - Text-based legal PDFs work best
    - Contracts, agreements, policies, briefs, regulations, etc.
 
 ### Using the Legal AI Assistant
 
-1. **Hugging Face AI Always Enabled**: The assistant automatically uses your uploaded legal documents for expert legal analysis
+1. **Together AI Always Enabled**: The assistant automatically uses your uploaded legal documents for expert legal analysis
 2. **Ask Legal Questions**: 
    - "What are the key terms and conditions in this contract?"
    - "Explain the legal implications of this clause"
@@ -171,16 +175,16 @@ npm run cleanup
 - **Fresh Legal Sessions**: Each time you start, you begin with a clean, confidential slate
 - **Manual Legal Cleanup**: Use `npm run cleanup` to manually clear legal cache if needed
 
-## 🔧 Hugging Face Configuration
+## 🔧 Together AI Configuration
 
 ### Environment Variables (.env)
 ```env
-# Required - Hugging Face API
-HUGGINGFACE_API_KEY=your_huggingface_api_key_here
-HUGGINGFACE_API_URL=https://api-inference.huggingface.co/models
+# Required - Together AI API
+TOGETHER_API_KEY=your_together_api_key_here
+TOGETHER_API_URL=https://api.together.xyz/v1/chat/completions
 
 # Legal AI Model Configuration
-LLM_MODEL=microsoft/DialoGPT-large
+LLM_MODEL=meta-llama/Llama-2-7b-chat-hf
 LLM_TEMPERATURE=0.1
 LLM_MAX_TOKENS=2000
 LLM_TOP_P=0.9
@@ -194,9 +198,9 @@ CHUNK_SIZE=500
 CHUNK_OVERLAP=100
 MAX_RETRIEVAL_RESULTS=3
 
-# Hugging Face API Settings
-HF_REQUEST_TIMEOUT=120
-HF_MAX_RETRIES=3
+# Together AI API Settings
+TOGETHER_REQUEST_TIMEOUT=120
+TOGETHER_MAX_RETRIES=3
 ```
 
 ## 🔌 Legal API Endpoints
@@ -207,17 +211,17 @@ HF_MAX_RETRIES=3
 - `GET /documents/stats` - View legal system statistics and document info
 - `DELETE /documents/clear` - Clear all legal documents from knowledge base
 
-### Hugging Face Integration
-- `GET /models` - Get available Hugging Face models for legal analysis
-- `POST /chat/stream` - Chat with Hugging Face AI analysis and streaming responses
+### Together AI Integration
+- `GET /models` - Get available Together AI models for legal analysis
+- `POST /chat/stream` - Chat with Together AI analysis and streaming responses
 
 ### Health Check
-- `GET /health` - Check legal system health and Hugging Face API status
+- `GET /health` - Check legal system health and Together AI API status
 
 ## 🏗️ Legal AI Architecture
 
 ### Backend Legal Services
-- **HuggingFaceClient**: Direct integration with Hugging Face Inference API
+- **TogetherClient**: Direct integration with Together AI API
 - **FileUploadService**: Handles direct legal PDF file uploads and validation
 - **PDFProcessor**: Extracts text from legal PDF files using multiple methods
 - **DocumentProcessor**: Chunks legal documents and prepares them for vector storage
@@ -225,45 +229,55 @@ HF_MAX_RETRIES=3
 - **RAGService**: Orchestrates legal retrieval and generation pipeline with legal prompts
 
 ### Frontend Legal Components
-- **Model Selector**: Interface for choosing Hugging Face models
+- **Model Selector**: Interface for choosing Together AI models
 - **FileUploadManager**: Interface for direct legal PDF file uploads with legal-specific UI
 - **DocumentManager**: Interface for legal PDF document management and statistics
-- **ChatBox**: Streaming legal chat interface with Hugging Face AI integration
+- **ChatBox**: Streaming legal chat interface with Together AI integration
 
-### Hugging Face Integration
-- **Multiple Model Support**: Easy switching between different AI models
-- **Streaming Responses**: Real-time streaming from Hugging Face Inference API
+### Together AI Integration
+- **Multiple Model Support**: Easy switching between Llama 2, Mistral, CodeLlama, and other models
+- **Streaming Responses**: Real-time streaming from Together AI API
 - **Error Handling**: Robust error handling with automatic retries
-- **Model Loading**: Automatic handling of model loading states
+- **Rate Limit Handling**: Automatic handling of API rate limits
 
 ## 📋 Supported Legal File Types
 - **Legal PDF Documents**: Contracts, agreements, policies, briefs, regulations, court documents
-- **File Size Limit**: 10MB maximum per legal upload (optimized for Hugging Face processing)
+- **File Size Limit**: 10MB maximum per legal upload
 - **Text Extraction**: Works best with text-based legal PDFs
 
-## 🤖 Hugging Face Model Details
+## 🤖 Together AI Model Details
 
 ### Available Models
 
-#### microsoft/DialoGPT-large
-- **Best for**: Conversational legal analysis and Q&A
-- **Strengths**: Natural dialogue, context understanding
-- **Use case**: General legal questions and document discussion
+#### meta-llama/Llama-2-7b-chat-hf
+- **Best for**: Fast legal Q&A and general legal assistance
+- **Strengths**: Quick responses, good general legal knowledge
+- **Use case**: Initial legal consultations and quick document reviews
 
-#### google/flan-t5-large
+#### meta-llama/Llama-2-13b-chat-hf
+- **Best for**: Balanced legal analysis with good performance
+- **Strengths**: Better reasoning than 7B, still fast
+- **Use case**: Detailed contract analysis and legal explanations
+
+#### meta-llama/Llama-2-70b-chat-hf
+- **Best for**: Complex legal reasoning and comprehensive analysis
+- **Strengths**: Most capable model, excellent for complex legal matters
+- **Use case**: Complex legal document analysis and sophisticated legal reasoning
+
+#### mistralai/Mistral-7B-Instruct-v0.1
 - **Best for**: Instruction-following and structured legal analysis
-- **Strengths**: Following complex instructions, reasoning
-- **Use case**: Detailed legal analysis and specific tasks
+- **Strengths**: Excellent at following specific legal instructions
+- **Use case**: Specific legal tasks and structured document analysis
 
-#### facebook/blenderbot-400M-distill
-- **Best for**: Balanced legal document discussion
-- **Strengths**: Efficient processing, good general performance
-- **Use case**: Quick legal consultations and document overview
+#### mistralai/Mixtral-8x7B-Instruct-v0.1
+- **Best for**: Advanced legal reasoning and complex document analysis
+- **Strengths**: Mixture of experts architecture for sophisticated reasoning
+- **Use case**: Complex legal research and multi-document analysis
 
-#### microsoft/GODEL-v1_1-large-seq2seq
-- **Best for**: Goal-oriented legal guidance
-- **Strengths**: Task-focused responses, legal reasoning
-- **Use case**: Specific legal advice and actionable guidance
+#### codellama/CodeLlama-7b-Instruct-hf
+- **Best for**: Legal logic and structured legal analysis
+- **Strengths**: Good at logical reasoning and structured thinking
+- **Use case**: Contract logic analysis and legal procedure understanding
 
 ### Legal Prompt Features
 - **Legal Context Awareness**: Distinguishes between document content and general legal knowledge
@@ -273,17 +287,17 @@ HF_MAX_RETRIES=3
 
 ## 🔧 Legal Troubleshooting
 
-### Common Hugging Face Issues
+### Common Together AI Issues
 
 **API Key Issues**:
-- Ensure your Hugging Face API key is valid and has proper permissions
+- Ensure your Together AI API key is valid and active
 - Check that the key is correctly set in your `.env` file
-- Verify your Hugging Face account has API access
+- Verify your Together AI account has sufficient credits
 
-**Model Loading Issues**:
-- Some models may take time to load on first use
-- The system automatically retries with exponential backoff
-- Try switching to a different model if one is consistently slow
+**Rate Limiting**:
+- Together AI has rate limits that are automatically handled
+- The system will retry with exponential backoff
+- Consider upgrading your Together AI plan for higher limits
 
 **Legal PDF Upload Issues**:
 - Ensure legal PDF files are not password-protected
@@ -291,23 +305,23 @@ HF_MAX_RETRIES=3
 - Some scanned legal documents may have limited text extraction
 
 **Legal Performance Optimization**:
-- Choose appropriate models based on your use case
+- Choose appropriate models based on your use case (7B for speed, 70B for quality)
 - Adjust `CHUNK_SIZE` and `CHUNK_OVERLAP` for your legal document types
-- Monitor memory usage with large legal document collections
+- Monitor API usage and costs in your Together AI dashboard
 
 ## 🛡️ Legal Security & Confidentiality
 
 - **Confidential Processing**: All legal documents processed locally with automatic cleanup
 - **No Persistent Storage**: Legal documents never stored permanently between sessions
 - **Secure API Keys**: Use environment variables for all sensitive configuration
-- **Hugging Face Privacy**: Requests to Hugging Face API follow their privacy policy
+- **Together AI Privacy**: Requests to Together AI API follow their privacy policy
 - **Legal Disclaimers**: Always includes appropriate legal disclaimers in responses
 - **Attorney Consultation**: Consistently recommends consulting qualified attorneys
 
 ## ⚠️ Legal Disclaimers
 
 ### Important Legal Notice
-This AI assistant provides general legal information and document analysis using Hugging Face AI models. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.
+This AI assistant provides general legal information and document analysis using Together AI models. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.
 
 ### What This Tool Does
 - Analyzes legal document content and structure using advanced AI
@@ -330,7 +344,7 @@ This AI assistant provides general legal information and document analysis using
 ## 🤝 Contributing
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes with Hugging Face considerations
+3. Make your changes with Together AI considerations
 4. Add tests if applicable
 5. Submit a pull request
 
@@ -338,15 +352,15 @@ This AI assistant provides general legal information and document analysis using
 MIT License - see LICENSE file for details
 
 ## 🆘 Legal Support
-For Hugging Face legal AI issues and questions:
-1. Check the Hugging Face troubleshooting section above
-2. Review the Hugging Face API documentation
+For Together AI legal AI issues and questions:
+1. Check the Together AI troubleshooting section above
+2. Review the Together AI API documentation
 3. Create an issue on GitHub with detailed information about your problem
 
 ---
 
-**⚖️ Get started by uploading your first legal PDF document and asking legal questions! Hugging Face AI analysis is always enabled for expert legal guidance, and everything is automatically cleared when you're done to maintain confidentiality.**
+**⚖️ Get started by uploading your first legal PDF document and asking legal questions! Together AI analysis is always enabled for expert legal guidance, and everything is automatically cleared when you're done to maintain confidentiality.**
 
-**🤖 Powered by Hugging Face**: Access to state-of-the-art language models for superior legal analysis.
+**🤖 Powered by Together AI**: Access to state-of-the-art language models including Llama 2, Mistral, and CodeLlama for superior legal analysis.
 
 **Remember: This tool provides legal information, not legal advice. Always consult with a qualified attorney for specific legal matters.**
