@@ -60,9 +60,15 @@ class HuggingFaceClient:
                             continue
                         
                         if response.status_code != 200:
-                            error_text = await response.atext()
+                            # Read error response properly
+                            try:
+                                error_content = await response.aread()
+                                error_text = error_content.decode('utf-8')
+                            except Exception:
+                                error_text = f"HTTP {response.status_code}"
+                            
                             logger.error(f"Hugging Face API error: {response.status_code} - {error_text}")
-                            yield f"[ERROR] API Error: {response.status_code}"
+                            yield f"[ERROR] API Error: {response.status_code} - {error_text}"
                             return
                         
                         # Handle streaming response
@@ -103,7 +109,7 @@ class HuggingFaceClient:
                 if retry_count < self.max_retries:
                     await asyncio.sleep(2 ** retry_count)  # Exponential backoff
                 else:
-                    yield f"[ERROR] Network error after {self.max_retries} attempts"
+                    yield f"[ERROR] Network error after {self.max_retries} attempts: {str(e)}"
                     return
             except Exception as e:
                 logger.error(f"Unexpected error: {e}")
@@ -146,9 +152,15 @@ class HuggingFaceClient:
                         continue
                     
                     if response.status_code != 200:
-                        error_text = await response.atext()
+                        # Read error response properly
+                        try:
+                            error_content = await response.aread()
+                            error_text = error_content.decode('utf-8')
+                        except Exception:
+                            error_text = f"HTTP {response.status_code}"
+                        
                         logger.error(f"Hugging Face API error: {response.status_code} - {error_text}")
-                        raise Exception(f"API Error: {response.status_code}")
+                        raise Exception(f"API Error: {response.status_code} - {error_text}")
                     
                     result = response.json()
                     
@@ -165,7 +177,7 @@ class HuggingFaceClient:
                 if retry_count < self.max_retries:
                     await asyncio.sleep(2 ** retry_count)
                 else:
-                    raise Exception(f"Network error after {self.max_retries} attempts")
+                    raise Exception(f"Network error after {self.max_retries} attempts: {str(e)}")
             except Exception as e:
                 logger.error(f"Error generating text: {e}")
                 raise
@@ -173,23 +185,22 @@ class HuggingFaceClient:
         raise Exception(f"Failed after {self.max_retries} attempts")
     
     def get_available_models(self) -> List[str]:
-        """Get list of recommended models for legal analysis"""
+        """Get list of recommended models for legal analysis (memory optimized)"""
         return [
-            # Legal-specific models
-            "microsoft/DialoGPT-large",
+            # Smaller, memory-efficient models
             "microsoft/DialoGPT-medium",
+            "microsoft/DialoGPT-small",
             "facebook/blenderbot-400M-distill",
             
-            # General purpose models good for legal text
-            "google/flan-t5-large",
-            "google/flan-t5-xl",
-            "microsoft/GODEL-v1_1-large-seq2seq",
-            
-            # Instruction-following models
+            # Base models instead of large ones
+            "google/flan-t5-base",
+            "google/flan-t5-small",
             "microsoft/GODEL-v1_1-base-seq2seq",
+            
+            # Lightweight instruction-following models
             "facebook/blenderbot-1B-distill",
             
-            # Code and reasoning models (good for legal logic)
+            # Smaller code and reasoning models
             "Salesforce/codegen-350M-multi",
             "bigscience/bloom-560m"
         ]
