@@ -47,13 +47,13 @@ const FileUploadManager = ({ onUploadSuccess }) => {
 
   const uploadFile = async () => {
     if (!selectedFile) {
-      setError('Please select a PDF file');
+      setError('Please select a legal PDF file');
       return;
     }
 
     setIsUploading(true);
     setError('');
-    setUploadProgress('Preparing upload...');
+    setUploadProgress('Preparing legal document upload...');
 
     try {
       const formData = new FormData();
@@ -62,14 +62,14 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         formData.append('title', title.trim());
       }
 
-      setUploadProgress('Uploading file...');
+      setUploadProgress('Uploading legal document...');
 
       const response = await fetch('http://localhost:8000/documents/upload', {
         method: 'POST',
         body: formData,
       });
 
-      setUploadProgress('Processing response...');
+      setUploadProgress('Processing legal document...');
 
       const data = await response.json();
 
@@ -78,7 +78,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         setTitle('');
         setError('');
         setUploadProgress('');
-        alert(`PDF "${data.document_info.title}" uploaded successfully!`);
+        alert(`Legal document "${data.document_info.title}" uploaded successfully!`);
         
         // Reset file input
         const fileInput = document.getElementById('pdf-file-input');
@@ -89,11 +89,11 @@ const FileUploadManager = ({ onUploadSuccess }) => {
           onUploadSuccess(data.document_info);
         }
       } else {
-        setError(data.detail || 'Failed to upload PDF');
+        setError(data.detail || 'Failed to upload legal document');
         setUploadProgress('');
       }
     } catch (error) {
-      console.error('Error uploading PDF:', error);
+      console.error('Error uploading legal document:', error);
       setError('Error connecting to server. Make sure the backend is running on http://localhost:8000');
       setUploadProgress('');
     } finally {
@@ -111,7 +111,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
 
   return (
     <div className="file-upload-manager">
-      <h4>Upload PDF File</h4>
+      <h4>📄 Upload Legal Documents</h4>
       
       <div 
         className={`upload-area ${dragActive ? 'drag-active' : ''}`}
@@ -121,8 +121,8 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         onDrop={handleDrop}
       >
         <div className="upload-content">
-          <div className="upload-icon">📄</div>
-          <p>Drag and drop a PDF file here, or click to select</p>
+          <div className="upload-icon">⚖️</div>
+          <p>Drag and drop a legal PDF here, or click to select</p>
           <input
             id="pdf-file-input"
             type="file"
@@ -137,27 +137,27 @@ const FileUploadManager = ({ onUploadSuccess }) => {
             disabled={isUploading}
             className="select-file-btn"
           >
-            Select PDF File
+            Select Legal PDF
           </button>
         </div>
       </div>
 
       {selectedFile && (
         <div className="selected-file">
-          <h5>Selected File:</h5>
+          <h5>Selected Legal Document:</h5>
           <div className="file-info">
-            <span className="file-name">{selectedFile.name}</span>
+            <span className="file-name">⚖️ {selectedFile.name}</span>
             <span className="file-size">{formatFileSize(selectedFile.size)}</span>
           </div>
           
           <div className="title-input">
-            <label htmlFor="file-title">Custom Title (optional):</label>
+            <label htmlFor="file-title">Document Title (optional):</label>
             <input
               id="file-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter a custom title for this document"
+              placeholder="Enter a title for this legal document"
               disabled={isUploading}
             />
           </div>
@@ -168,7 +168,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
               disabled={isUploading}
               className="upload-btn"
             >
-              {isUploading ? 'Uploading...' : 'Upload PDF'}
+              {isUploading ? 'Processing...' : 'Upload Legal Document'}
             </button>
             <button 
               onClick={() => {
@@ -197,15 +197,16 @@ const FileUploadManager = ({ onUploadSuccess }) => {
       )}
 
       {error && <div className="error">{error}</div>}
-      }
 
       <div className="upload-info">
-        <h5>Upload Requirements:</h5>
+        <h5>📋 Legal Document Requirements:</h5>
         <ul>
           <li>File format: PDF only</li>
           <li>Maximum file size: 50MB</li>
-          <li>Text-based PDFs work best (scanned images may have limited text extraction)</li>
-          <li>Files are processed locally and added to your knowledge base</li>
+          <li>Supported: Contracts, policies, legal briefs, regulations, etc.</li>
+          <li>Text-based PDFs work best for analysis</li>
+          <li>Documents are processed securely and locally</li>
+          <li>All uploads are automatically cleared when you close the application</li>
         </ul>
       </div>
 
@@ -234,12 +235,12 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         }
 
         .upload-area:hover {
-          border-color: #007bff;
+          border-color: #1e3a8a;
           background-color: #f8f9ff;
         }
 
         .upload-area.drag-active {
-          border-color: #007bff;
+          border-color: #1e3a8a;
           background-color: #e3f2fd;
           transform: scale(1.02);
         }
@@ -264,7 +265,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
 
         .select-file-btn {
           padding: 10px 20px;
-          background-color: #007bff;
+          background-color: #1e3a8a;
           color: white;
           border: none;
           border-radius: 6px;
@@ -274,7 +275,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
         }
 
         .select-file-btn:hover:not(:disabled) {
-          background-color: #0056b3;
+          background-color: #1e40af;
         }
 
         .select-file-btn:disabled {
@@ -305,7 +306,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
 
         .file-name {
           font-weight: bold;
-          color: #007bff;
+          color: #1e3a8a;
         }
 
         .file-size {
@@ -335,8 +336,8 @@ const FileUploadManager = ({ onUploadSuccess }) => {
 
         .title-input input:focus {
           outline: none;
-          border-color: #007bff;
-          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+          border-color: #1e3a8a;
+          box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.25);
         }
 
         .upload-actions {
@@ -388,7 +389,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
 
         .progress-text {
           font-size: 0.9em;
-          color: #007bff;
+          color: #1e3a8a;
           margin-bottom: 8px;
           font-weight: 500;
         }
@@ -403,7 +404,7 @@ const FileUploadManager = ({ onUploadSuccess }) => {
 
         .progress-fill {
           height: 100%;
-          background-color: #007bff;
+          background-color: #1e3a8a;
           border-radius: 3px;
           animation: progress-animation 2s ease-in-out infinite;
         }

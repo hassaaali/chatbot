@@ -52,7 +52,7 @@ const DocumentManager = () => {
       if (response.ok) {
         setDocuments(prev => prev.filter(doc => doc.document_id !== docId));
         fetchStats();
-        alert('Document removed successfully!');
+        alert('Legal document removed successfully!');
       } else {
         const data = await response.json();
         alert(`Error: ${data.detail || 'Failed to remove document'}`);
@@ -64,7 +64,7 @@ const DocumentManager = () => {
   };
 
   const clearAllDocuments = async () => {
-    if (!window.confirm('Are you sure you want to clear all documents?')) {
+    if (!window.confirm('Are you sure you want to clear all legal documents?')) {
       return;
     }
 
@@ -76,7 +76,7 @@ const DocumentManager = () => {
       if (response.ok) {
         setDocuments([]);
         fetchStats();
-        alert('All documents cleared successfully!');
+        alert('All legal documents cleared successfully!');
       } else {
         const data = await response.json();
         alert(`Error: ${data.detail || 'Failed to clear documents'}`);
@@ -97,7 +97,7 @@ const DocumentManager = () => {
 
   return (
     <div className="document-manager">
-      <h3>PDF Document Manager</h3>
+      <h3>📚 Legal Document Library</h3>
       
       <div className="cache-info">
         <div className="cache-indicator">
@@ -105,7 +105,7 @@ const DocumentManager = () => {
           <span className="cache-text">Auto-clear on close</span>
         </div>
         <p className="cache-description">
-          Documents are automatically cleared when you close the application to keep your system clean.
+          Legal documents are automatically cleared when you close the application to maintain confidentiality and system cleanliness.
         </p>
       </div>
       
@@ -113,13 +113,13 @@ const DocumentManager = () => {
 
       {stats && (
         <div className="stats">
-          <h4>Knowledge Base Stats</h4>
+          <h4>📊 Legal Knowledge Base</h4>
           <p>Total Documents: {stats.vector_store_stats?.total_documents || 0}</p>
           <p>Total Chunks: {stats.vector_store_stats?.total_chunks || 0}</p>
-          <p>Embedding Model: {stats.vector_store_stats?.embedding_model || 'N/A'}</p>
+          <p>AI Model: {stats.vector_store_stats?.embedding_model || 'N/A'}</p>
           {stats.vector_store_stats?.sources && (
             <div>
-              <p>Sources:</p>
+              <p>Legal Sources:</p>
               <ul>
                 {Object.entries(stats.vector_store_stats.sources).map(([source, count]) => (
                   <li key={source}>{source}: {count} chunks</li>
@@ -131,22 +131,22 @@ const DocumentManager = () => {
       )}
 
       <div className="document-list">
-        <h4>Uploaded Documents</h4>
+        <h4>📄 Uploaded Legal Documents</h4>
         {documents.length === 0 ? (
-          <p>No PDF documents uploaded yet.</p>
+          <p>No legal documents uploaded yet. Upload contracts, policies, or other legal PDFs to get started.</p>
         ) : (
           <ul>
             {documents.map((doc) => (
               <li key={doc.document_id}>
                 <div className="doc-info">
-                  <span className="doc-title">{doc.title}</span>
+                  <span className="doc-title">⚖️ {doc.title}</span>
                   <span className="doc-id">ID: {doc.document_id}</span>
                   <span className="doc-length">Content: {doc.content_length} chars</span>
                   {doc.file_size && (
                     <span className="doc-size">Size: {formatFileSize(doc.file_size)}</span>
                   )}
                   <span className="doc-source source-upload">
-                    Source: 📁 Upload
+                    Source: 📁 Legal Upload
                   </span>
                 </div>
                 <button onClick={() => removeDocument(doc.document_id)}>Remove</button>
@@ -158,7 +158,7 @@ const DocumentManager = () => {
 
       {documents.length > 0 && (
         <button className="clear-all" onClick={clearAllDocuments}>
-          Clear All Documents
+          Clear All Legal Documents
         </button>
       )}
 
@@ -257,7 +257,7 @@ const DocumentManager = () => {
         .doc-title {
           font-weight: bold;
           margin-bottom: 2px;
-          color: #d32f2f;
+          color: #1e3a8a;
         }
 
         .doc-id, .doc-length, .doc-size {

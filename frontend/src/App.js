@@ -60,8 +60,8 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>RAG-Enhanced PDF Chatbot</h1>
-        <p>Upload PDF documents and get intelligent, context-aware answers</p>
+        <h1>⚖️ Legal AI Assistant</h1>
+        <p>Upload legal documents and get expert legal analysis and guidance</p>
       </header>
       <main className="App-main">
         <div className="container">

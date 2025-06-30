@@ -74,29 +74,63 @@ class RAGService:
             return []
     
     def generate_rag_prompt(self, query: str, context_results: List[Dict]) -> str:
-        """Generate an enhanced prompt with context"""
+        """Generate an enhanced prompt with context for legal questions"""
         if not context_results:
-            return query
+            return self._generate_legal_prompt_without_context(query)
         
         # Build context from retrieved documents
         context_parts = []
         for result in context_results:
             title = result['metadata'].get('title', 'Unknown Document')
             content = result['content']
-            context_parts.append(f"From '{title}':\n{content}")
+            context_parts.append(f"Document: '{title}'\nContent: {content}")
         
         context = "\n\n".join(context_parts)
         
-        # Create enhanced prompt
-        enhanced_prompt = f"""You are a helpful assistant. Use the following context to answer the user's question. If the context doesn't contain relevant information, say so clearly and provide a general response.
+        # Create enhanced prompt for legal questions
+        enhanced_prompt = f"""You are a knowledgeable legal assistant with expertise in analyzing legal documents and providing accurate legal information. Your role is to help users understand legal concepts, interpret documents, and provide guidance based on the provided legal materials.
 
-Context:
+IMPORTANT GUIDELINES:
+1. Base your answers primarily on the provided legal documents
+2. Clearly distinguish between what is stated in the documents vs. general legal knowledge
+3. Use precise legal terminology when appropriate
+4. If the documents don't contain sufficient information, clearly state this limitation
+5. Always recommend consulting with a qualified attorney for specific legal advice
+6. Cite specific sections or provisions when referencing the documents
+
+LEGAL CONTEXT FROM DOCUMENTS:
 {context}
 
-User: {query}
-Assistant:"""
+USER QUESTION: {query}
+
+LEGAL ANALYSIS:
+Please provide a comprehensive response that:
+- Directly addresses the user's question using information from the provided documents
+- Explains relevant legal concepts and terminology
+- Identifies any applicable legal principles or precedents mentioned in the documents
+- Notes any limitations or areas where additional legal consultation may be needed
+- Provides clear, actionable guidance where appropriate
+
+Response:"""
         
         return enhanced_prompt
+    
+    def _generate_legal_prompt_without_context(self, query: str) -> str:
+        """Generate a legal prompt when no context documents are available"""
+        return f"""You are a knowledgeable legal assistant. The user has asked a legal question, but no specific legal documents have been provided for context.
+
+USER QUESTION: {query}
+
+Please provide a helpful response that:
+1. Addresses the legal question using general legal knowledge
+2. Explains relevant legal concepts and terminology
+3. Provides general guidance while emphasizing the importance of consulting with a qualified attorney
+4. Suggests what types of legal documents or information would be helpful for a more specific analysis
+5. Clearly states that this is general information and not specific legal advice
+
+IMPORTANT: Always recommend consulting with a qualified attorney for specific legal advice tailored to the user's particular situation.
+
+Response:"""
     
     def get_system_stats(self) -> Dict:
         """Get RAG system statistics"""

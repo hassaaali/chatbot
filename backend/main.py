@@ -33,7 +33,7 @@ try:
 except Exception as e:
     logger.warning(f"Configuration validation failed: {e}")
 
-app = FastAPI(title="RAG-Enhanced PDF Chatbot API", version="1.0.0")
+app = FastAPI(title="Legal RAG-Enhanced PDF Chatbot API", version="1.0.0")
 
 # Configure CORS
 app.add_middleware(
@@ -141,12 +141,13 @@ class DocumentResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "RAG-Enhanced PDF Chatbot API", "version": "1.0.0"}
+    return {"message": "Legal RAG-Enhanced PDF Chatbot API", "version": "1.0.0"}
 
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
+        "model": Config.LLM_MODEL,
         "services": {
             "rag": rag_service is not None,
             "vector_store": vector_store is not None,
@@ -188,7 +189,7 @@ async def upload_pdf(
         
         return DocumentResponse(
             success=True,
-            message=f"Successfully uploaded and processed PDF '{document['title']}'",
+            message=f"Successfully uploaded and processed legal document '{document['title']}'",
             document_info={
                 "title": document['title'],
                 "document_id": document['id'],
@@ -267,16 +268,20 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
                         for result in context_results
                     ]))
                 }
-                logger.info(f"Enhanced prompt with {len(context_results)} context results")
+                logger.info(f"Enhanced legal prompt with {len(context_results)} context results")
+            else:
+                # Use legal-specific prompt even without context
+                enhanced_prompt = rag_service.generate_rag_prompt(prompt, [])
         except Exception as e:
-            logger.warning(f"RAG enhancement failed, using original prompt: {e}")
+            logger.warning(f"RAG enhancement failed, using legal prompt without context: {e}")
+            enhanced_prompt = rag_service._generate_legal_prompt_without_context(prompt)
 
     async def event_generator():
         buffer = ""
         try:
             # Send context information first if available
             if context_info:
-                yield f"data: [CONTEXT] Using information from: {', '.join(context_info['sources'])}\n\n"
+                yield f"data: [CONTEXT] Using legal information from: {', '.join(context_info['sources'])}\n\n"
             
             # Check if Together API key is available
             if not Config.TOGETHER_API_KEY:
@@ -289,12 +294,12 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
                     "https://api.together.xyz/inference",
                     headers={"Authorization": f"Bearer {Config.TOGETHER_API_KEY}"},
                     json={
-                        "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                        "model": Config.LLM_MODEL,
                         "prompt": enhanced_prompt,
                         "stream": True,
-                        "max_tokens": 4000,
-                        "temperature": 0.1,
-                        "top_p": 0.9
+                        "max_tokens": Config.LLM_MAX_TOKENS,
+                        "temperature": Config.LLM_TEMPERATURE,
+                        "top_p": Config.LLM_TOP_P
                     }
                 ) as response:
                     if response.status_code != 200:

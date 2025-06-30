@@ -18,7 +18,7 @@ const ChatBox = () => {
   useEffect(() => {
     const welcomeMessage = {
       role: 'assistant',
-      content: 'Hello! I\'m your RAG-enhanced PDF chatbot. Upload some PDF documents using the sidebar, and I\'ll help you find information from them. RAG (Retrieval-Augmented Generation) is always enabled to provide you with the most accurate, context-aware answers based on your documents.',
+      content: 'Welcome to your Legal AI Assistant! I\'m here to help you analyze legal documents and answer legal questions. Upload PDF legal documents using the sidebar, and I\'ll provide expert legal analysis based on your materials.\n\n⚠️ **Important Legal Disclaimer**: This AI assistant provides general legal information and document analysis. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.',
       isWelcome: true
     };
     setMessages([welcomeMessage]);
@@ -40,7 +40,7 @@ const ChatBox = () => {
         },
         body: JSON.stringify({
           prompt: input,
-          use_rag: true // Always use RAG
+          use_rag: true // Always use RAG for legal analysis
         }),
       });
 
@@ -68,7 +68,7 @@ const ChatBox = () => {
             
             if (data.startsWith('[CONTEXT]')) {
               // Extract source information
-              const contextInfo = data.replace('[CONTEXT] Using information from: ', '');
+              const contextInfo = data.replace('[CONTEXT] Using legal information from: ', '');
               assistantMessage.sources = contextInfo.split(', ');
             } else if (data.startsWith('[ERROR]')) {
               assistantMessage.content += `Error: ${data.replace('[ERROR] ', '')}`;
@@ -104,13 +104,22 @@ const ChatBox = () => {
     }
   };
 
+  const legalQuestionSuggestions = [
+    "What are the key terms and conditions in this contract?",
+    "Explain the legal implications of this clause",
+    "What are my rights and obligations under this agreement?",
+    "Are there any potential legal risks in this document?",
+    "What does this legal provision mean in plain language?",
+    "How does this document protect my interests?"
+  ];
+
   return (
     <div className="chatbox">
       <div className="chat-header">
-        <h3>💬 Chat with your PDFs</h3>
-        <div className="rag-status">
-          <span className="status-indicator enabled">
-            🧠 RAG Always Enabled
+        <h3>⚖️ Legal Document Analysis</h3>
+        <div className="legal-status">
+          <span className="status-indicator legal-enabled">
+            🧠 Legal AI Analysis Active
           </span>
         </div>
       </div>
@@ -122,7 +131,7 @@ const ChatBox = () => {
               {message.content}
               {message.sources && message.sources.length > 0 && (
                 <div className="sources">
-                  <strong>📚 Sources:</strong>
+                  <strong>📚 Legal Sources Referenced:</strong>
                   <ul>
                     {message.sources.map((source, idx) => (
                       <li key={idx}>{source}</li>
@@ -141,26 +150,50 @@ const ChatBox = () => {
                 <span></span>
                 <span></span>
               </div>
-              Thinking...
+              Analyzing legal documents...
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {messages.length === 1 && (
+        <div className="suggestions">
+          <h4>💡 Try asking:</h4>
+          <div className="suggestion-buttons">
+            {legalQuestionSuggestions.map((suggestion, index) => (
+              <button
+                key={index}
+                className="suggestion-btn"
+                onClick={() => setInput(suggestion)}
+                disabled={isLoading}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="input-area">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Ask me anything about your uploaded PDFs..."
+          placeholder="Ask me about your legal documents... (e.g., 'What are the key terms in this contract?', 'Explain this clause', 'What are my legal obligations?')"
           disabled={isLoading}
           rows="3"
         />
         <button onClick={sendMessage} disabled={isLoading || !input.trim()}>
-          <span>Send</span>
-          <span className="send-icon">📤</span>
+          <span>Analyze</span>
+          <span className="send-icon">⚖️</span>
         </button>
       </div>
+
+      <div className="legal-disclaimer">
+        <p><strong>⚠️ Legal Disclaimer:</strong> This AI provides general legal information and document analysis. It does not constitute legal advice. Always consult with a qualified attorney for specific legal matters.</p>
+      </div>
+
       <style jsx>{`
         .chatbox {
           display: flex;
@@ -184,7 +217,7 @@ const ChatBox = () => {
           font-size: 1.3rem;
         }
 
-        .rag-status {
+        .legal-status {
           display: flex;
           align-items: center;
         }
@@ -195,7 +228,10 @@ const ChatBox = () => {
           font-size: 0.9rem;
           font-weight: 700;
           border: 2px solid;
-          background: linear-gradient(135deg, #d4edda, #c3e6cb);
+        }
+
+        .legal-enabled {
+          background: linear-gradient(135deg, #e8f5e8, #d4edda);
           color: #155724;
           border-color: #28a745;
           box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
@@ -217,7 +253,7 @@ const ChatBox = () => {
         }
 
         .message.user {
-          background: linear-gradient(135deg, #007bff, #0056b3);
+          background: linear-gradient(135deg, #1e3a8a, #1e40af);
           color: white;
           margin-left: auto;
           text-align: right;
@@ -233,9 +269,9 @@ const ChatBox = () => {
         }
 
         .message.assistant.welcome {
-          background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-          border-color: #2196f3;
-          color: #1565c0;
+          background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+          border-color: #ffc107;
+          color: #856404;
         }
 
         .message.assistant.loading {
@@ -259,7 +295,7 @@ const ChatBox = () => {
           width: 6px;
           height: 6px;
           border-radius: 50%;
-          background-color: #007bff;
+          background-color: #1e3a8a;
           animation: typing 1.4s infinite ease-in-out;
         }
 
@@ -294,6 +330,49 @@ const ChatBox = () => {
           margin-bottom: 2px;
         }
 
+        .suggestions {
+          margin-bottom: 20px;
+          padding: 16px;
+          background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+          border-radius: 12px;
+          border: 1px solid #dee2e6;
+        }
+
+        .suggestions h4 {
+          margin: 0 0 12px 0;
+          color: #495057;
+          font-size: 1rem;
+        }
+
+        .suggestion-buttons {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .suggestion-btn {
+          padding: 8px 12px;
+          background: linear-gradient(135deg, #ffffff, #f8f9fa);
+          border: 1px solid #dee2e6;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 0.85rem;
+          color: #495057;
+          transition: all 0.2s ease;
+        }
+
+        .suggestion-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, #1e3a8a, #1e40af);
+          color: white;
+          border-color: #1e3a8a;
+          transform: translateY(-1px);
+        }
+
+        .suggestion-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
         .input-area {
           display: flex;
           gap: 12px;
@@ -302,6 +381,7 @@ const ChatBox = () => {
           background-color: #f8f9fa;
           border-radius: 12px;
           border: 1px solid #e9ecef;
+          margin-bottom: 15px;
         }
 
         .input-area textarea {
@@ -318,13 +398,13 @@ const ChatBox = () => {
 
         .input-area textarea:focus {
           outline: none;
-          border-color: #007bff;
-          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+          border-color: #1e3a8a;
+          box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.25);
         }
 
         .input-area button {
           padding: 12px 20px;
-          background: linear-gradient(135deg, #007bff, #0056b3);
+          background: linear-gradient(135deg, #1e3a8a, #1e40af);
           color: white;
           border: none;
           border-radius: 8px;
@@ -335,14 +415,14 @@ const ChatBox = () => {
           align-items: center;
           gap: 6px;
           transition: all 0.2s ease;
-          min-width: 80px;
+          min-width: 100px;
           justify-content: center;
         }
 
         .input-area button:hover:not(:disabled) {
-          background: linear-gradient(135deg, #0056b3, #004085);
+          background: linear-gradient(135deg, #1e40af, #1d4ed8);
           transform: translateY(-1px);
-          box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+          box-shadow: 0 4px 8px rgba(30, 58, 138, 0.3);
         }
 
         .input-area button:disabled {
@@ -354,6 +434,20 @@ const ChatBox = () => {
 
         .send-icon {
           font-size: 16px;
+        }
+
+        .legal-disclaimer {
+          padding: 12px;
+          background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+          border: 1px solid #ffc107;
+          border-radius: 8px;
+          font-size: 0.85rem;
+        }
+
+        .legal-disclaimer p {
+          margin: 0;
+          color: #856404;
+          line-height: 1.4;
         }
 
         /* Scrollbar styling */
