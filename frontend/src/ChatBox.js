@@ -6,6 +6,7 @@ const ChatBox = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState('');
   const [availableModels, setAvailableModels] = useState([]);
+  const [modelDetails, setModelDetails] = useState({});
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -27,7 +28,8 @@ const ChatBox = () => {
       if (response.ok) {
         const data = await response.json();
         setAvailableModels(data.available_models || []);
-        setSelectedModel(data.current_model || '');
+        setSelectedModel(data.current_model || data.recommended_model || '');
+        setModelDetails(data.model_details || {});
       }
     } catch (error) {
       console.error('Error fetching models:', error);
@@ -38,7 +40,7 @@ const ChatBox = () => {
   useEffect(() => {
     const welcomeMessage = {
       role: 'assistant',
-      content: 'Welcome to your Legal AI Assistant powered by Together AI! I\'m here to help you analyze legal documents and answer legal questions using advanced AI models. Upload PDF legal documents using the sidebar, and I\'ll provide expert legal analysis based on your materials.\n\n🤖 **Powered by Together AI**: Access to state-of-the-art language models including Llama 2, Mistral, and CodeLlama for legal analysis.\n\n⚠️ **Important Legal Disclaimer**: This AI assistant provides general legal information and document analysis. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.',
+      content: 'Welcome to your **Legal AI Assistant** powered by Together AI! I\'m optimized specifically for legal analysis using the most capable AI models available.\n\n🤖 **Current Model**: Llama 2 70B - The most powerful model for complex legal reasoning and comprehensive analysis\n\n⚖️ **Legal Expertise**: I specialize in:\n- Contract analysis and review\n- Legal document interpretation\n- Risk assessment and compliance\n- Legal research and precedent analysis\n- Regulatory guidance and explanations\n\nUpload your legal PDF documents using the sidebar, and I\'ll provide expert legal analysis based on your materials.\n\n⚠️ **Important Legal Disclaimer**: This AI assistant provides general legal information and document analysis. It does not constitute legal advice and should not replace consultation with a qualified attorney for specific legal matters.',
       isWelcome: true
     };
     setMessages([welcomeMessage]);
@@ -71,7 +73,7 @@ const ChatBox = () => {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = { role: 'assistant', content: '', sources: [], model: '' };
+      let assistantMessage = { role: 'assistant', content: '', sources: [], model: '', optimization: '' };
       
       setMessages(prev => [...prev, assistantMessage]);
 
@@ -93,8 +95,12 @@ const ChatBox = () => {
               assistantMessage.sources = contextInfo.split(', ');
             } else if (data.startsWith('[MODEL]')) {
               // Extract model information
-              const modelInfo = data.replace('[MODEL] Using Together AI model: ', '');
+              const modelInfo = data.replace('[MODEL] Using ', '');
               assistantMessage.model = modelInfo;
+            } else if (data.startsWith('[OPTIMIZATION]')) {
+              // Extract optimization information
+              const optimizationInfo = data.replace('[OPTIMIZATION] ', '');
+              assistantMessage.optimization = optimizationInfo;
             } else if (data.startsWith('[ERROR]')) {
               assistantMessage.content += `Error: ${data.replace('[ERROR] ', '')}`;
             } else if (data.trim()) {
@@ -129,29 +135,45 @@ const ChatBox = () => {
     }
   };
 
+  const getModelDisplayName = (model) => {
+    if (modelDetails[model]) {
+      return modelDetails[model].name;
+    }
+    return model.split('/').pop();
+  };
+
+  const getModelDescription = (model) => {
+    if (modelDetails[model]) {
+      return modelDetails[model].description;
+    }
+    return '';
+  };
+
   const legalQuestionSuggestions = [
     "What are the key terms and conditions in this contract?",
-    "Explain the legal implications of this clause",
-    "What are my rights and obligations under this agreement?",
-    "Are there any potential legal risks in this document?",
-    "What does this legal provision mean in plain language?",
-    "How does this document protect my interests?"
+    "Analyze the liability clauses in this agreement",
+    "What are my rights and obligations under this document?",
+    "Identify potential legal risks in this contract",
+    "Explain the termination provisions in plain language",
+    "What intellectual property rights are addressed here?",
+    "Are there any compliance requirements I should know about?",
+    "How does this agreement handle dispute resolution?"
   ];
 
   return (
     <div className="chatbox">
       <div className="chat-header">
-        <h3>⚖️ Legal Document Analysis</h3>
+        <h3>⚖️ Legal AI Assistant</h3>
         <div className="legal-status">
           <span className="status-indicator legal-enabled">
-            🤖 Together AI Active
+            🤖 Together AI - Legal Optimized
           </span>
         </div>
       </div>
 
       {availableModels.length > 0 && (
         <div className="model-selector">
-          <label htmlFor="model-select">🤖 AI Model:</label>
+          <label htmlFor="model-select">🤖 Legal AI Model:</label>
           <select
             id="model-select"
             value={selectedModel}
@@ -160,10 +182,15 @@ const ChatBox = () => {
           >
             {availableModels.map((model) => (
               <option key={model} value={model}>
-                {model.split('/').pop()} {model === selectedModel ? '(current)' : ''}
+                {getModelDisplayName(model)} {model.includes('70b') ? '⭐ Recommended' : ''}
               </option>
             ))}
           </select>
+          {selectedModel && modelDetails[selectedModel] && (
+            <div className="model-description">
+              <strong>Best for:</strong> {modelDetails[selectedModel].best_for}
+            </div>
+          )}
         </div>
       )}
       
@@ -174,7 +201,12 @@ const ChatBox = () => {
               {message.content}
               {message.model && (
                 <div className="model-info">
-                  <strong>🤖 Model:</strong> {message.model}
+                  <strong>🤖 AI Model:</strong> {message.model}
+                </div>
+              )}
+              {message.optimization && (
+                <div className="optimization-info">
+                  <strong>⚡ Optimization:</strong> {message.optimization}
                 </div>
               )}
               {message.sources && message.sources.length > 0 && (
@@ -198,7 +230,7 @@ const ChatBox = () => {
                 <span></span>
                 <span></span>
               </div>
-              Analyzing with Together AI...
+              Analyzing with Legal AI (Llama 2 70B)...
             </div>
           </div>
         )}
@@ -207,7 +239,7 @@ const ChatBox = () => {
 
       {messages.length === 1 && (
         <div className="suggestions">
-          <h4>💡 Try asking:</h4>
+          <h4>💡 Legal Analysis Examples:</h4>
           <div className="suggestion-buttons">
             {legalQuestionSuggestions.map((suggestion, index) => (
               <button
@@ -228,18 +260,18 @@ const ChatBox = () => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Ask me about your legal documents... (e.g., 'What are the key terms in this contract?', 'Explain this clause', 'What are my legal obligations?')"
+          placeholder="Ask me about your legal documents... (e.g., 'Analyze the liability clauses', 'What are the termination provisions?', 'Identify potential legal risks')"
           disabled={isLoading}
           rows="3"
         />
         <button onClick={sendMessage} disabled={isLoading || !input.trim()}>
-          <span>Analyze</span>
-          <span className="send-icon">🤖</span>
+          <span>Legal Analysis</span>
+          <span className="send-icon">⚖️</span>
         </button>
       </div>
 
       <div className="legal-disclaimer">
-        <p><strong>⚠️ Legal Disclaimer:</strong> This AI provides general legal information and document analysis. It does not constitute legal advice. Always consult with a qualified attorney for specific legal matters.</p>
+        <p><strong>⚠️ Legal Disclaimer:</strong> This AI provides general legal information and document analysis using advanced AI models. It does not constitute legal advice. Always consult with a qualified attorney for specific legal matters.</p>
       </div>
 
       <style jsx>{`
@@ -287,10 +319,10 @@ const ChatBox = () => {
 
         .model-selector {
           display: flex;
-          align-items: center;
-          gap: 10px;
+          flex-direction: column;
+          gap: 8px;
           margin-bottom: 15px;
-          padding: 10px;
+          padding: 12px;
           background: linear-gradient(135deg, #f8f9fa, #e9ecef);
           border-radius: 8px;
           border: 1px solid #dee2e6;
@@ -303,11 +335,10 @@ const ChatBox = () => {
         }
 
         .model-selector select {
-          flex: 1;
-          padding: 6px 10px;
+          padding: 8px 12px;
           border: 1px solid #ced4da;
           border-radius: 4px;
-          font-size: 0.85rem;
+          font-size: 0.9rem;
           background-color: white;
         }
 
@@ -315,6 +346,13 @@ const ChatBox = () => {
           outline: none;
           border-color: #1e3a8a;
           box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.25);
+        }
+
+        .model-description {
+          font-size: 0.8rem;
+          color: #6c757d;
+          font-style: italic;
+          margin-top: 4px;
         }
 
         .messages {
@@ -387,7 +425,7 @@ const ChatBox = () => {
           40% { transform: scale(1); opacity: 1; }
         }
 
-        .model-info {
+        .model-info, .optimization-info {
           margin-top: 8px;
           padding-top: 8px;
           border-top: 1px solid #dee2e6;
@@ -503,7 +541,7 @@ const ChatBox = () => {
           align-items: center;
           gap: 6px;
           transition: all 0.2s ease;
-          min-width: 100px;
+          min-width: 120px;
           justify-content: center;
         }
 

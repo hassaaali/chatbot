@@ -21,21 +21,31 @@ class TogetherClient:
         }
     
     async def generate_text_stream(self, prompt: str, model: str = None) -> AsyncGenerator[str, None]:
-        """Generate streaming text response from Together AI model"""
+        """Generate streaming text response from Together AI model optimized for legal analysis"""
         model = model or Config.LLM_MODEL
+        
+        # Optimize parameters based on model for legal analysis
+        temperature = 0.05 if "70b" in model.lower() else Config.LLM_TEMPERATURE  # Even lower for 70B
+        max_tokens = 4000 if "70b" in model.lower() else Config.LLM_MAX_TOKENS  # More tokens for detailed legal analysis
         
         payload = {
             "model": model,
             "messages": [
                 {
+                    "role": "system",
+                    "content": "You are an expert legal AI assistant with deep knowledge of law, legal procedures, and document analysis. Provide accurate, detailed, and well-reasoned legal analysis while always recommending consultation with qualified attorneys for specific legal advice."
+                },
+                {
                     "role": "user",
                     "content": prompt
                 }
             ],
-            "max_tokens": Config.LLM_MAX_TOKENS,
-            "temperature": Config.LLM_TEMPERATURE,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
             "top_p": Config.LLM_TOP_P,
-            "stream": True
+            "stream": True,
+            "repetition_penalty": 1.1,  # Reduce repetition in legal analysis
+            "stop": ["Human:", "Assistant:", "User:"]  # Stop sequences for cleaner responses
         }
         
         retry_count = 0
@@ -51,8 +61,16 @@ class TogetherClient:
                         
                         if response.status_code == 429:
                             # Rate limit, wait and retry
-                            logger.info("Rate limit hit, waiting...")
-                            await asyncio.sleep(5)
+                            wait_time = min(10 * (2 ** retry_count), 60)  # Exponential backoff, max 60s
+                            logger.info(f"Rate limit hit, waiting {wait_time}s...")
+                            await asyncio.sleep(wait_time)
+                            retry_count += 1
+                            continue
+                        
+                        if response.status_code == 503:
+                            # Model loading, wait and retry
+                            logger.info(f"Model {model} is loading, waiting...")
+                            await asyncio.sleep(15)
                             retry_count += 1
                             continue
                         
@@ -60,11 +78,13 @@ class TogetherClient:
                             try:
                                 error_content = await response.aread()
                                 error_text = error_content.decode('utf-8')
+                                error_data = json.loads(error_text)
+                                error_message = error_data.get('error', {}).get('message', error_text)
                             except Exception:
-                                error_text = f"HTTP {response.status_code}"
+                                error_message = f"HTTP {response.status_code}"
                             
-                            logger.error(f"Together AI API error: {response.status_code} - {error_text}")
-                            yield f"[ERROR] API Error: {response.status_code} - {error_text}"
+                            logger.error(f"Together AI API error: {response.status_code} - {error_message}")
+                            yield f"[ERROR] Legal AI Error: {error_message}"
                             return
                         
                         # Handle streaming response
@@ -81,8 +101,8 @@ class TogetherClient:
                                                 content = delta["content"]
                                                 buffer += content
                                                 
-                                                # Yield complete words or sentences
-                                                if content.endswith((" ", ".", "!", "?", "\n")):
+                                                # Yield complete words or sentences for better legal readability
+                                                if content.endswith((" ", ".", "!", "?", "\n", ":", ";")):
                                                     if buffer.strip():
                                                         yield buffer
                                                         buffer = ""
@@ -113,21 +133,31 @@ class TogetherClient:
         yield f"[ERROR] Failed after {self.max_retries} attempts"
     
     async def generate_text(self, prompt: str, model: str = None) -> str:
-        """Generate non-streaming text response from Together AI model"""
+        """Generate non-streaming text response from Together AI model optimized for legal analysis"""
         model = model or Config.LLM_MODEL
+        
+        # Optimize parameters based on model for legal analysis
+        temperature = 0.05 if "70b" in model.lower() else Config.LLM_TEMPERATURE
+        max_tokens = 4000 if "70b" in model.lower() else Config.LLM_MAX_TOKENS
         
         payload = {
             "model": model,
             "messages": [
                 {
+                    "role": "system",
+                    "content": "You are an expert legal AI assistant with deep knowledge of law, legal procedures, and document analysis. Provide accurate, detailed, and well-reasoned legal analysis while always recommending consultation with qualified attorneys for specific legal advice."
+                },
+                {
                     "role": "user",
                     "content": prompt
                 }
             ],
-            "max_tokens": Config.LLM_MAX_TOKENS,
-            "temperature": Config.LLM_TEMPERATURE,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
             "top_p": Config.LLM_TOP_P,
-            "stream": False
+            "stream": False,
+            "repetition_penalty": 1.1,
+            "stop": ["Human:", "Assistant:", "User:"]
         }
         
         retry_count = 0
@@ -137,9 +167,15 @@ class TogetherClient:
                     response = await client.post(self.base_url, headers=self.headers, json=payload)
                     
                     if response.status_code == 429:
-                        # Rate limit, wait and retry
-                        logger.info("Rate limit hit, waiting...")
-                        await asyncio.sleep(5)
+                        wait_time = min(10 * (2 ** retry_count), 60)
+                        logger.info(f"Rate limit hit, waiting {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                        retry_count += 1
+                        continue
+                    
+                    if response.status_code == 503:
+                        logger.info(f"Model {model} is loading, waiting...")
+                        await asyncio.sleep(15)
                         retry_count += 1
                         continue
                     
@@ -147,11 +183,13 @@ class TogetherClient:
                         try:
                             error_content = await response.aread()
                             error_text = error_content.decode('utf-8')
+                            error_data = json.loads(error_text)
+                            error_message = error_data.get('error', {}).get('message', error_text)
                         except Exception:
-                            error_text = f"HTTP {response.status_code}"
+                            error_message = f"HTTP {response.status_code}"
                         
-                        logger.error(f"Together AI API error: {response.status_code} - {error_text}")
-                        raise Exception(f"API Error: {response.status_code} - {error_text}")
+                        logger.error(f"Together AI API error: {response.status_code} - {error_message}")
+                        raise Exception(f"Legal AI Error: {error_message}")
                     
                     result = response.json()
                     
@@ -174,23 +212,77 @@ class TogetherClient:
         raise Exception(f"Failed after {self.max_retries} attempts")
     
     def get_available_models(self) -> List[str]:
-        """Get list of recommended models for legal analysis"""
+        """Get list of models optimized for legal analysis, ranked by capability"""
         return [
-            # Legal-specific models
-            "meta-llama/Llama-2-7b-chat-hf",
-            "meta-llama/Llama-2-13b-chat-hf",
-            "meta-llama/Llama-2-70b-chat-hf",
+            # Primary recommendation for legal analysis
+            "meta-llama/Llama-2-70b-chat-hf",  # Best for complex legal reasoning
             
-            # Code and reasoning models (good for legal logic)
-            "codellama/CodeLlama-7b-Instruct-hf",
-            "codellama/CodeLlama-13b-Instruct-hf",
+            # High-performance alternatives
+            "mistralai/Mixtral-8x7B-Instruct-v0.1",  # Excellent for legal documents
+            "meta-llama/Llama-2-13b-chat-hf",  # Balanced performance
             
-            # General purpose models good for legal text
-            "mistralai/Mistral-7B-Instruct-v0.1",
-            "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            # Specialized models
+            "codellama/CodeLlama-13b-Instruct-hf",  # Good for legal logic
+            "mistralai/Mistral-7B-Instruct-v0.1",  # Fast instruction following
             
-            # Instruction-following models
-            "togethercomputer/RedPajama-INCITE-7B-Chat",
-            "NousResearch/Nous-Hermes-2-Yi-34B",
-            "teknium/OpenHermes-2.5-Mistral-7B"
+            # Additional options
+            "meta-llama/Llama-2-7b-chat-hf",  # Fastest option
+            "codellama/CodeLlama-7b-Instruct-hf",  # Lightweight logic model
+            "togethercomputer/RedPajama-INCITE-7B-Chat",  # Alternative option
+            "NousResearch/Nous-Hermes-2-Yi-34B",  # High-quality reasoning
+            "teknium/OpenHermes-2.5-Mistral-7B"  # Instruction-tuned
         ]
+    
+    def get_model_info(self, model: str) -> Dict:
+        """Get detailed information about a specific model for legal use"""
+        model_info = {
+            "meta-llama/Llama-2-70b-chat-hf": {
+                "name": "Llama 2 70B (Recommended for Legal)",
+                "description": "Most capable model for complex legal reasoning and comprehensive analysis",
+                "best_for": "Complex contracts, legal research, detailed legal analysis",
+                "performance": "Highest",
+                "speed": "Slower",
+                "legal_rating": 5
+            },
+            "mistralai/Mixtral-8x7B-Instruct-v0.1": {
+                "name": "Mixtral 8x7B",
+                "description": "Excellent balance of performance and speed for legal document analysis",
+                "best_for": "Contract review, legal document analysis, legal Q&A",
+                "performance": "High",
+                "speed": "Fast",
+                "legal_rating": 4
+            },
+            "meta-llama/Llama-2-13b-chat-hf": {
+                "name": "Llama 2 13B",
+                "description": "Good performance for most legal tasks with reasonable speed",
+                "best_for": "General legal Q&A, document review, legal explanations",
+                "performance": "Good",
+                "speed": "Fast",
+                "legal_rating": 4
+            },
+            "codellama/CodeLlama-13b-Instruct-hf": {
+                "name": "CodeLlama 13B",
+                "description": "Excellent for legal logic, procedures, and structured reasoning",
+                "best_for": "Contract logic, legal procedures, compliance analysis",
+                "performance": "Good",
+                "speed": "Fast",
+                "legal_rating": 3
+            },
+            "mistralai/Mistral-7B-Instruct-v0.1": {
+                "name": "Mistral 7B",
+                "description": "Fast and efficient for structured legal tasks",
+                "best_for": "Quick legal analysis, specific legal instructions",
+                "performance": "Good",
+                "speed": "Very Fast",
+                "legal_rating": 3
+            }
+        }
+        
+        return model_info.get(model, {
+            "name": model.split('/')[-1],
+            "description": "General purpose model",
+            "best_for": "General tasks",
+            "performance": "Unknown",
+            "speed": "Unknown",
+            "legal_rating": 2
+        })

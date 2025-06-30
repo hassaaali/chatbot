@@ -31,10 +31,11 @@ logger = logging.getLogger(__name__)
 try:
     Config.validate()
     logger.info("Configuration validated successfully")
+    logger.info(f"Using legal AI model: {Config.LLM_MODEL}")
 except Exception as e:
     logger.warning(f"Configuration validation failed: {e}")
 
-app = FastAPI(title="Legal RAG-Enhanced PDF Chatbot API (Together AI)", version="1.0.0")
+app = FastAPI(title="Legal AI Assistant - RAG-Enhanced PDF Chatbot (Together AI)", version="2.0.0")
 
 # Configure CORS
 app.add_middleware(
@@ -117,9 +118,9 @@ try:
     together_client = TogetherClient()
     logger.info("Together AI client initialized")
     
-    # Initialize document processor with optimized settings
+    # Initialize document processor with optimized settings for legal documents
     document_processor = DocumentProcessor(Config.CHUNK_SIZE, Config.CHUNK_OVERLAP)
-    logger.info("Document processor initialized")
+    logger.info("Document processor initialized with legal optimization")
     
     # Initialize vector store with memory optimization
     vector_store = VectorStore(Config.CHROMA_DB_PATH, Config.EMBEDDING_MODEL)
@@ -133,7 +134,7 @@ try:
     file_upload_service = FileUploadService(Config.MAX_FILE_SIZE)
     logger.info("File upload service initialized")
     
-    logger.info("All services initialized successfully")
+    logger.info("All services initialized successfully for legal AI analysis")
         
 except Exception as e:
     logger.error(f"Failed to initialize services: {e}")
@@ -151,7 +152,12 @@ class DocumentResponse(BaseModel):
 
 @app.get("/")
 async def root():
-    return {"message": "Legal RAG-Enhanced PDF Chatbot API (Together AI)", "version": "1.0.0"}
+    return {
+        "message": "Legal AI Assistant - RAG-Enhanced PDF Chatbot (Together AI)", 
+        "version": "2.0.0",
+        "optimized_for": "Legal Analysis",
+        "default_model": Config.LLM_MODEL
+    }
 
 @app.get("/health")
 async def health_check():
@@ -159,6 +165,7 @@ async def health_check():
         "status": "healthy",
         "model": Config.LLM_MODEL,
         "api_provider": "Together AI",
+        "optimization": "Legal Analysis",
         "services": {
             "rag": rag_service is not None,
             "vector_store": vector_store is not None,
@@ -170,21 +177,22 @@ async def health_check():
 
 @app.get("/models")
 async def get_available_models():
-    """Get list of available Together AI models for legal analysis"""
+    """Get list of available Together AI models optimized for legal analysis"""
     if not together_client:
         raise HTTPException(status_code=503, detail="Together AI client not available")
     
+    available_models = together_client.get_available_models()
+    model_details = {}
+    
+    for model in available_models:
+        model_details[model] = together_client.get_model_info(model)
+    
     return {
         "current_model": Config.LLM_MODEL,
-        "available_models": together_client.get_available_models(),
-        "model_descriptions": {
-            "meta-llama/Llama-2-7b-chat-hf": "Llama 2 7B - Fast and efficient for legal Q&A",
-            "meta-llama/Llama-2-13b-chat-hf": "Llama 2 13B - Balanced performance for legal analysis",
-            "meta-llama/Llama-2-70b-chat-hf": "Llama 2 70B - Most capable for complex legal reasoning",
-            "mistralai/Mistral-7B-Instruct-v0.1": "Mistral 7B - Excellent instruction following for legal tasks",
-            "mistralai/Mixtral-8x7B-Instruct-v0.1": "Mixtral 8x7B - Advanced reasoning for legal documents",
-            "codellama/CodeLlama-7b-Instruct-hf": "Code Llama 7B - Good for legal logic and structured analysis"
-        }
+        "recommended_model": "meta-llama/Llama-2-70b-chat-hf",
+        "available_models": available_models,
+        "model_details": model_details,
+        "legal_recommendations": Config.get_recommended_legal_models()
     }
 
 @app.on_event("shutdown")
@@ -199,8 +207,8 @@ async def upload_pdf(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None)
 ) -> DocumentResponse:
-    """Upload a PDF file directly to the RAG system"""
-    logger.info(f"Received file upload request: {file.filename}")
+    """Upload a legal PDF file directly to the RAG system"""
+    logger.info(f"Received legal document upload request: {file.filename}")
     
     if not file_upload_service:
         raise HTTPException(status_code=503, detail="File upload service not available")
@@ -210,13 +218,13 @@ async def upload_pdf(
     
     try:
         # Process the uploaded PDF with memory optimization
-        logger.info("Processing uploaded PDF...")
+        logger.info("Processing uploaded legal PDF...")
         document = await file_upload_service.process_uploaded_pdf(file, title)
-        logger.info("PDF processing completed, adding to RAG system...")
+        logger.info("Legal PDF processing completed, adding to RAG system...")
         
         # Add to RAG system
         rag_service.add_document(document)
-        logger.info("Document added to RAG system successfully")
+        logger.info("Legal document added to RAG system successfully")
         
         # Force garbage collection after processing
         gc.collect()
@@ -230,32 +238,33 @@ async def upload_pdf(
                 "content_length": len(document['content']),
                 "file_size": document.get('size', 0),
                 "filename": document.get('filename', ''),
-                "source": "upload"
+                "source": "legal_upload",
+                "type": "legal_document"
             }
         )
     except Exception as e:
-        logger.error(f"Error uploading PDF: {e}")
+        logger.error(f"Error uploading legal PDF: {e}")
         # Force garbage collection on error
         gc.collect()
-        raise HTTPException(status_code=500, detail=f"Failed to upload PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload legal PDF: {str(e)}")
 
 @app.delete("/documents/{document_id}")
 async def delete_document(document_id: str):
-    """Remove a document from the RAG system"""
+    """Remove a legal document from the RAG system"""
     if not rag_service:
         raise HTTPException(status_code=503, detail="RAG service not available")
     
     try:
         rag_service.delete_document(document_id)
         gc.collect()  # Force garbage collection after deletion
-        return {"success": True, "message": f"Document {document_id} removed successfully"}
+        return {"success": True, "message": f"Legal document {document_id} removed successfully"}
     except Exception as e:
-        logger.error(f"Error deleting document: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
+        logger.error(f"Error deleting legal document: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete legal document: {str(e)}")
 
 @app.get("/documents/stats")
 async def get_system_stats():
-    """Get RAG system statistics"""
+    """Get legal RAG system statistics"""
     if not rag_service:
         raise HTTPException(status_code=503, detail="RAG service not available")
     
@@ -263,6 +272,8 @@ async def get_system_stats():
         stats = rag_service.get_system_stats()
         stats["api_provider"] = "Together AI"
         stats["current_model"] = Config.LLM_MODEL
+        stats["optimization"] = "Legal Analysis"
+        stats["recommended_model"] = "meta-llama/Llama-2-70b-chat-hf"
         return stats
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
@@ -270,17 +281,17 @@ async def get_system_stats():
 
 @app.delete("/documents/clear")
 async def clear_all_documents():
-    """Clear all documents from the RAG system"""
+    """Clear all legal documents from the RAG system"""
     if not rag_service:
         raise HTTPException(status_code=503, detail="RAG service not available")
     
     try:
         rag_service.clear_all_documents()
         gc.collect()  # Force garbage collection after clearing
-        return {"success": True, "message": "All documents cleared successfully"}
+        return {"success": True, "message": "All legal documents cleared successfully"}
     except Exception as e:
-        logger.error(f"Error clearing documents: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to clear documents: {str(e)}")
+        logger.error(f"Error clearing legal documents: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear legal documents: {str(e)}")
 
 @app.post("/chat/stream")
 async def stream_chat(prompt_request: PromptRequest, request: Request):
@@ -331,8 +342,12 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
                 yield f"data: [ERROR] Together AI API key not configured. Please set TOGETHER_API_KEY in your environment.\n\n"
                 return
             
-            # Send model information
-            yield f"data: [MODEL] Using Together AI model: {model}\n\n"
+            # Send model information with legal optimization details
+            model_info = together_client.get_model_info(model)
+            yield f"data: [MODEL] Using {model_info['name']} - {model_info['description']}\n\n"
+            
+            if model == "meta-llama/Llama-2-70b-chat-hf":
+                yield f"data: [OPTIMIZATION] Using the most capable model for complex legal reasoning\n\n"
             
             # Stream response from Together AI
             async for chunk in together_client.generate_text_stream(enhanced_prompt, model):
@@ -361,6 +376,7 @@ if __name__ == "__main__":
     import uvicorn
     
     try:
+        logger.info(f"Starting Legal AI Assistant with model: {Config.LLM_MODEL}")
         uvicorn.run(app, host="0.0.0.0", port=8000)
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt, shutting down...")
