@@ -4,7 +4,7 @@ import ChatBox from './ChatBox';
 import DocumentManager from './components/DocumentManager';
 
 function App() {
-  const [useRAG, setUseRAG] = useState(false);
+  const [useRAG, setUseRAG] = useState(true); // Changed to true by default
 
   return (
     <div className="App">
@@ -27,7 +27,7 @@ function App() {
                 Use RAG (Document Context)
               </label>
               <p className="rag-description">
-                When enabled, the chatbot will use your uploaded PDF documents to provide more accurate and contextual answers.
+                When enabled, the chatbot will use your uploaded PDF documents to provide more accurate and contextual answers. RAG is enabled by default for the best experience.
               </p>
             </div>
           </div>
