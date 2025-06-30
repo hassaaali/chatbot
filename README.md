@@ -1,6 +1,6 @@
 # RAG-Enhanced PDF Chatbot
 
-A comprehensive RAG (Retrieval-Augmented Generation) chatbot that processes PDF documents to provide context-aware responses. Upload PDFs directly and get intelligent answers based on your document content with RAG always enabled for the best experience.
+A comprehensive RAG (Retrieval-Augmented Generation) chatbot that processes PDF documents to provide context-aware responses. Upload PDFs directly and get intelligent answers based on your document content with RAG always enabled for the best experience. **Features automatic cache clearing when the application is closed to keep your system clean.**
 
 ## 🚀 Features
 
@@ -8,6 +8,7 @@ A comprehensive RAG (Retrieval-Augmented Generation) chatbot that processes PDF 
 - **📁 Direct PDF Upload**: Drag and drop or select PDF files directly from your computer
 - **🔄 Smart Processing**: Advanced text extraction using multiple PDF processing methods
 - **📚 Knowledge Base**: Persistent storage of processed documents with vector embeddings
+- **🗑️ Auto-cleanup**: Automatically clears cache and temporary files when application closes
 
 ### RAG Pipeline
 - **🧠 Always-On Context**: RAG is permanently enabled for the most accurate responses
@@ -20,16 +21,21 @@ A comprehensive RAG (Retrieval-Augmented Generation) chatbot that processes PDF 
 - **✂️ Intelligent Chunking**: Breaks documents into optimal chunks with overlap
 - **🏷️ Metadata Preservation**: Maintains document titles and processing information
 
+### System Management
+- **🧹 Automatic Cache Clearing**: Cleans up all documents and temporary files on application close
+- **💾 Memory Management**: Efficient cleanup of vector databases and embeddings
+- **🔄 Fresh Start**: Each session starts with a clean slate for optimal performance
+
 ## 🏗️ Project Structure
 
 ```
 ├── backend/                 # Python FastAPI backend
 │   ├── services/           # Core services (RAG, Vector Store, PDF Processing, File Upload)
-│   ├── main.py            # FastAPI application
+│   ├── main.py            # FastAPI application with cleanup handlers
 │   ├── config.py          # Configuration management
 │   └── requirements.txt   # Python dependencies
 ├── frontend/              # React frontend
-│   ├── src/              # React components and logic
+│   ├── src/              # React components with cleanup logic
 │   └── package.json      # Node.js dependencies
 └── README.md             # This file
 ```
@@ -91,6 +97,13 @@ Or start them separately:
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
 
+### Manual Cache Cleanup
+
+If you need to manually clean the cache:
+```bash
+npm run cleanup
+```
+
 ## 📖 Usage
 
 ### Adding PDF Documents
@@ -112,6 +125,16 @@ Or start them separately:
 2. **Ask Questions**: Type questions related to your uploaded PDF documents
 3. **View Sources**: The chatbot will show which documents it references in responses
 4. **Monitor Stats**: Check the knowledge base statistics to see indexed content
+
+### Cache Management
+
+- **Automatic Cleanup**: Documents and cache are automatically cleared when you:
+  - Close the browser tab/window
+  - Navigate away from the application
+  - Shut down the backend server
+  - Exit the application
+- **Fresh Sessions**: Each time you start the application, you begin with a clean slate
+- **Manual Cleanup**: Use `npm run cleanup` to manually clear cache if needed
 
 ## 🔧 Configuration
 
@@ -152,11 +175,19 @@ MAX_RETRIEVAL_RESULTS=5
 - **DocumentProcessor**: Chunks documents and prepares them for vector storage
 - **VectorStore**: Manages ChromaDB for semantic similarity search
 - **RAGService**: Orchestrates retrieval and generation pipeline
+- **Cleanup Handlers**: Automatic cache clearing on application shutdown
 
 ### Frontend Components
 - **FileUploadManager**: Interface for direct PDF file uploads with drag-and-drop
 - **DocumentManager**: Interface for PDF document management and statistics
 - **ChatBox**: Streaming chat interface with RAG always enabled
+- **Cleanup Logic**: Automatic cache clearing on component unmount and page close
+
+### Cache Management
+- **Signal Handlers**: Graceful shutdown with cleanup on SIGINT/SIGTERM
+- **Event Listeners**: Browser event handling for tab/window close
+- **Automatic Cleanup**: Removes ChromaDB, temporary files, and authentication tokens
+- **Memory Management**: Efficient cleanup of vector embeddings and document storage
 
 ## 📋 Supported File Types
 - **PDF Documents**: Primary supported format with advanced text extraction
@@ -172,6 +203,11 @@ MAX_RETRIEVAL_RESULTS=5
 - Check file size is under 50MB limit
 - Some scanned PDFs may have limited text extraction
 
+**Cache Issues**:
+- If cache isn't clearing automatically, use `npm run cleanup`
+- Ensure proper permissions for file/directory deletion
+- Check logs for cleanup errors
+
 **Vector Store Issues**:
 - Ensure sufficient disk space for ChromaDB
 - Check write permissions for the database directory
@@ -186,7 +222,24 @@ MAX_RETRIEVAL_RESULTS=5
 - Use environment variables for all sensitive configuration
 - Consider implementing user authentication for production deployment
 - Regularly rotate API keys and review access permissions
-- Uploaded files are processed locally and stored in the vector database
+- Uploaded files are processed locally and automatically cleaned up
+- No persistent storage of user documents between sessions
+
+## 🧹 Cleanup Details
+
+### What Gets Cleaned Up
+- **ChromaDB Directory**: Complete vector database removal
+- **Temporary Files**: All temp directories and uploaded files
+- **Authentication Tokens**: OAuth tokens and session data
+- **Document Cache**: All processed document chunks and embeddings
+- **System Logs**: Cleanup operation logs
+
+### When Cleanup Occurs
+- **Browser Close**: When user closes tab or browser window
+- **Page Navigation**: When user navigates away from the application
+- **Server Shutdown**: When backend server is stopped (Ctrl+C)
+- **Component Unmount**: When React components are unmounted
+- **Manual Trigger**: When `npm run cleanup` is executed
 
 ## 🤝 Contributing
 1. Fork the repository
@@ -206,4 +259,4 @@ For issues and questions:
 
 ---
 
-**Get started by uploading your first PDF document and asking questions about its content! RAG is always enabled for the best experience.**
+**Get started by uploading your first PDF document and asking questions about its content! RAG is always enabled for the best experience, and everything is automatically cleaned up when you're done.**

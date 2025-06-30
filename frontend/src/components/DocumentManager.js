@@ -8,7 +8,23 @@ const DocumentManager = () => {
 
   useEffect(() => {
     fetchStats();
+    
+    // Clear cache when component unmounts
+    return () => {
+      clearCacheOnUnmount();
+    };
   }, []);
+
+  const clearCacheOnUnmount = async () => {
+    try {
+      await fetch('http://localhost:8000/documents/clear', {
+        method: 'DELETE',
+      });
+      console.log('Cache cleared on component unmount');
+    } catch (error) {
+      console.warn('Could not clear cache on unmount:', error);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -83,6 +99,16 @@ const DocumentManager = () => {
     <div className="document-manager">
       <h3>PDF Document Manager</h3>
       
+      <div className="cache-info">
+        <div className="cache-indicator">
+          <span className="cache-icon">🗑️</span>
+          <span className="cache-text">Auto-clear on close</span>
+        </div>
+        <p className="cache-description">
+          Documents are automatically cleared when you close the application to keep your system clean.
+        </p>
+      </div>
+      
       <FileUploadManager onUploadSuccess={handleUploadSuccess} />
 
       {stats && (
@@ -147,6 +173,37 @@ const DocumentManager = () => {
         .document-manager h3 {
           margin-top: 0;
           color: #333;
+        }
+
+        .cache-info {
+          background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+          border: 1px solid #ffc107;
+          border-radius: 8px;
+          padding: 12px;
+          margin-bottom: 20px;
+        }
+
+        .cache-indicator {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+
+        .cache-icon {
+          font-size: 1.2em;
+        }
+
+        .cache-text {
+          font-weight: 600;
+          color: #856404;
+        }
+
+        .cache-description {
+          margin: 0;
+          font-size: 0.85em;
+          color: #856404;
+          line-height: 1.4;
         }
 
         .stats {

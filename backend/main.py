@@ -8,6 +8,10 @@ from pydantic import BaseModel
 from typing import Optional, List
 import os
 import asyncio
+import signal
+import sys
+import atexit
+import shutil
 
 from config import Config
 from services.document_processor import DocumentProcessor
@@ -45,6 +49,63 @@ document_processor = None
 vector_store = None
 rag_service = None
 file_upload_service = None
+
+def cleanup_cache():
+    """Clean up cache and temporary files on application shutdown"""
+    try:
+        logger.info("Starting application cleanup...")
+        
+        # Clear vector store if available
+        if rag_service:
+            try:
+                rag_service.clear_all_documents()
+                logger.info("Cleared all documents from RAG system")
+            except Exception as e:
+                logger.warning(f"Error clearing RAG documents: {e}")
+        
+        # Remove ChromaDB directory
+        if os.path.exists(Config.CHROMA_DB_PATH):
+            try:
+                shutil.rmtree(Config.CHROMA_DB_PATH)
+                logger.info(f"Removed ChromaDB directory: {Config.CHROMA_DB_PATH}")
+            except Exception as e:
+                logger.warning(f"Error removing ChromaDB directory: {e}")
+        
+        # Clean up any temporary files
+        temp_dirs = ['./temp', './tmp', './uploads']
+        for temp_dir in temp_dirs:
+            if os.path.exists(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir)
+                    logger.info(f"Removed temporary directory: {temp_dir}")
+                except Exception as e:
+                    logger.warning(f"Error removing temp directory {temp_dir}: {e}")
+        
+        # Clean up any .pickle files (authentication tokens)
+        pickle_files = ['token.pickle', 'drive_sync_state.json']
+        for pickle_file in pickle_files:
+            if os.path.exists(pickle_file):
+                try:
+                    os.remove(pickle_file)
+                    logger.info(f"Removed file: {pickle_file}")
+                except Exception as e:
+                    logger.warning(f"Error removing file {pickle_file}: {e}")
+        
+        logger.info("Application cleanup completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Error during cleanup: {e}")
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+    cleanup_cache()
+    sys.exit(0)
+
+# Register cleanup functions
+atexit.register(cleanup_cache)
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 try:
     # Initialize document processor
@@ -93,6 +154,12 @@ async def health_check():
             "file_upload": file_upload_service is not None
         }
     }
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """FastAPI shutdown event handler"""
+    logger.info("FastAPI shutdown event triggered")
+    cleanup_cache()
 
 # File upload endpoints
 @app.post("/documents/upload")
@@ -276,4 +343,13 @@ async def stream_chat(prompt_request: PromptRequest, request: Request):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    except KeyboardInterrupt:
+        logger.info("Received keyboard interrupt, shutting down...")
+        cleanup_cache()
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+        cleanup_cache()
+        raise
